@@ -33,23 +33,27 @@ export default function AlertsPage() {
   useEffect(() => {
     checkAdminSession().then(setIsAdmin)
     loadProcessesWithoutScan()
-    loadSettingsAndStartInterval()
   }, [])
 
-  const loadSettingsAndStartInterval = async () => {
-    const settings = await getSettings()
-    if (settings.autoScan) {
-      const interval = (settings.scanInterval || 60) * 1000
-      const timer = setInterval(() => {
-        loadProcessesWithScan()
-      }, interval)
-      return () => clearInterval(timer)
-    }
-  }
+  useEffect(() => {
+    getSettings().then(settings => {
+      if (settings.autoScan) {
+        const interval = (settings.scanInterval || 60) * 1000
+        const timer = setInterval(() => {
+          loadProcessesWithScan()
+        }, interval)
+        return () => clearInterval(timer)
+      }
+    })
+  }, [])
 
   const loadProcessesWithoutScan = async () => {
-    const data = await getOverTimeProcesses()
-    setProcesses(data)
+    try {
+      const data = await getOverTimeProcesses()
+      setProcesses(data)
+    } catch (e) {
+      console.error('Failed to load processes:', e)
+    }
     setLoading(false)
   }
 
@@ -57,7 +61,9 @@ export default function AlertsPage() {
     setLoading(true)
     try {
       await fetch('/api/cron/scan', { method: 'POST' })
-    } catch (e) {}
+    } catch (e) {
+      console.error('Scan failed:', e)
+    }
     const data = await getOverTimeProcesses()
     setProcesses(data)
     setLoading(false)

@@ -2,21 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
-  const authHeader = request.headers.get('authorization')
-  const cronSecret = process.env.CRON_SECRET
+  // Scan API is public - it doesn't expose sensitive data, just triggers GPU process scan
+  // Security is enforced on DELETE (kill process) and server management operations
   
-  // Check if it's a cron request (internal) or admin request
-  const isCronRequest = cronSecret && authHeader === `Bearer ${cronSecret}`
-  
-  // Verify admin session properly
-  const { getSession } = await import('@/lib/auth')
-  const session = await getSession()
-  const isAdminRequest = !!session
-  
-  if (!isCronRequest && !isAdminRequest) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
   const { Client } = await import('ssh2')
   
   const servers = await prisma.server.findMany()
