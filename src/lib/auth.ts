@@ -4,7 +4,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
 
 import { cookies } from 'next/headers'
 
-import { getAdminSecret } from '@/lib/env'
+import { getAdminSecret, shouldUseSecureCookies } from '@/lib/env'
 import { prisma } from '@/lib/prisma'
 
 const ADMIN_SESSION = 'admin-session'
@@ -102,7 +102,7 @@ export async function setSession(username: string) {
     }),
     {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: shouldUseSecureCookies(),
       sameSite: 'lax',
       maxAge: SESSION_TTL_SECONDS,
       path: '/',

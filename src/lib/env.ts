@@ -32,3 +32,18 @@ export function getSecurityRequirements() {
     minAdminSecretLength: MIN_ADMIN_SECRET_LENGTH,
   }
 }
+
+export function shouldUseSecureCookies() {
+  const configuredValue = process.env.SESSION_COOKIE_SECURE?.trim().toLowerCase()
+
+  if (configuredValue === 'true') {
+    return true
+  }
+
+  if (configuredValue === 'false') {
+    return false
+  }
+
+  const appUrl = process.env.APP_URL?.trim().toLowerCase()
+  return Boolean(appUrl?.startsWith('https://'))
+}

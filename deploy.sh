@@ -24,6 +24,10 @@ ensure_env_file() {
     echo 'DATABASE_URL=file:/app/data/proc.db' >> "$ENV_FILE"
   fi
 
+  if ! grep -q '^SESSION_COOKIE_SECURE=' "$ENV_FILE"; then
+    echo 'SESSION_COOKIE_SECURE=false' >> "$ENV_FILE"
+  fi
+
   if ! grep -q '^ADMIN_SECRET=' "$ENV_FILE"; then
     ADMIN_SECRET_VALUE="$(generate_secret)"
     echo "ADMIN_SECRET=$ADMIN_SECRET_VALUE" >> "$ENV_FILE"
