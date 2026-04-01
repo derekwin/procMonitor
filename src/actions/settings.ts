@@ -13,7 +13,7 @@ export async function getSettings() {
     },
   })
   if (!settings) {
-    return { autoScan: true, scanInterval: 60, anonProcessThreshold: 360 }
+    return { autoScan: true, scanInterval: 60, anonProcessThreshold: 120 }
   }
   return settings
 }
@@ -57,7 +57,7 @@ export async function updateSettings(data: {
   }
   
   if (data.anonProcessThreshold !== undefined && (data.anonProcessThreshold < 60 || !Number.isInteger(data.anonProcessThreshold))) {
-    return { success: false, error: '匿名进程超时至少60分钟' }
+    return { success: false, error: '自动终止宽限时间至少60分钟' }
   }
   
   const settings = await prisma.settings.upsert({
@@ -67,7 +67,7 @@ export async function updateSettings(data: {
       id: 'default',
       autoScan: data.autoScan,
       scanInterval: data.scanInterval,
-      anonProcessThreshold: data.anonProcessThreshold ?? 360,
+      anonProcessThreshold: data.anonProcessThreshold ?? 120,
     },
   })
   return { success: true, settings }
@@ -95,7 +95,7 @@ export async function updateCronSecret(cronSecret: string) {
       id: 'default',
       autoScan: true,
       scanInterval: 60,
-      anonProcessThreshold: 360,
+      anonProcessThreshold: 120,
       cronSecret: normalizedSecret || null,
     },
   })

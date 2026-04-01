@@ -26,7 +26,7 @@ export default function AlertsPage() {
   const [loading, setLoading] = useState(true)
   const [killing, setKilling] = useState<string | null>(null)
   const [scanning, setScanning] = useState(false)
-  const [anonThreshold, setAnonThreshold] = useState(360)
+  const [anonThreshold, setAnonThreshold] = useState(120)
 
   async function loadProcessesWithoutScan() {
     try {
@@ -61,7 +61,7 @@ export default function AlertsPage() {
         return
       }
 
-      setAnonThreshold(settings.anonProcessThreshold || 360)
+      setAnonThreshold(settings.anonProcessThreshold || 120)
       setProcesses(data)
       setLoading(false)
 
@@ -154,8 +154,8 @@ export default function AlertsPage() {
       <main className="max-w-7xl mx-auto py-6 px-4">
         <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg mb-6">
           <p className="text-yellow-800">
-            以下进程已超过运行时间限制：
-            <strong>匿名进程 &gt; {Math.floor(anonThreshold / 60)}小时</strong> 或 <strong>已注册进程 &gt; 预估时间</strong>
+            以下进程已达到自动终止条件：
+            <strong>匿名进程 &gt; {anonThreshold}分钟</strong> 或 <strong>已注册进程 &gt; 预估时间 + {anonThreshold}分钟</strong>
           </p>
           {processes.length > 0 && (
             <button
@@ -198,7 +198,7 @@ export default function AlertsPage() {
                     <td className="px-6 py-4 whitespace-nowrap">{process.programName}</td>
                     <td className="px-6 py-4">{process.description || '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {process.estimatedDuration ? `${process.estimatedDuration}分钟` : '6小时'}
+                      {process.estimatedDuration ? `${process.estimatedDuration}+${anonThreshold}分钟` : `${anonThreshold}分钟`}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-red-600 font-medium">
                       {getRuntime(process.actualStartTime)}

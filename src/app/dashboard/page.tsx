@@ -29,7 +29,7 @@ export default function DashboardPage() {
   const [scanning, setScanning] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const [killing, setKilling] = useState<string | null>(null)
-  const [settings, setSettings] = useState({ anonProcessThreshold: 360 })
+  const [settings, setSettings] = useState({ anonProcessThreshold: 120 })
 
   async function loadProcessesWithoutScan() {
     const data = await getProcesses()
@@ -53,7 +53,7 @@ export default function DashboardPage() {
       }
 
       setIsAdmin(admin)
-      setSettings({ anonProcessThreshold: settingsData.anonProcessThreshold || 360 })
+      setSettings({ anonProcessThreshold: settingsData.anonProcessThreshold || 120 })
       setProcesses(processData)
       setLoading(false)
 
@@ -122,14 +122,13 @@ export default function DashboardPage() {
   const isOverTime = (process: Process) => {
     const start = new Date(process.actualStartTime)
     const now = new Date()
-    const hours = (now.getTime() - start.getTime()) / 1000 / 60 / 60
+    const runtimeMinutes = (now.getTime() - start.getTime()) / 1000 / 60
     
     if (process.isAnonymous) {
-      return hours > (settings.anonProcessThreshold / 60)
+      return runtimeMinutes > settings.anonProcessThreshold
     }
     if (process.estimatedDuration) {
-      const estimatedHours = process.estimatedDuration / 60
-      return hours > estimatedHours
+      return runtimeMinutes > process.estimatedDuration + settings.anonProcessThreshold
     }
     return false
   }

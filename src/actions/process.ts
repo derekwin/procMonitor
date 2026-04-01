@@ -50,7 +50,32 @@ export async function registerProcess(data: {
 
   if (existing) {
     if (!existing.isAnonymous) {
-      return { success: false, error: '该进程已注册' }
+      const runtimeMinutes = Math.max(
+        0,
+        Math.floor((Date.now() - new Date(existing.actualStartTime).getTime()) / 1000 / 60),
+      )
+
+      const refreshedEstimate =
+        normalizedData.estimatedDuration !== undefined
+          ? runtimeMinutes + normalizedData.estimatedDuration
+          : existing.estimatedDuration
+
+      const updated = await prisma.process.update({
+        where: { id: existing.id },
+        data: {
+          username: normalizedData.username,
+          programName: normalizedData.programName,
+          description: normalizedData.description || null,
+          estimatedDuration: refreshedEstimate,
+          isAnonymous: false,
+        },
+      })
+
+      return {
+        success: true,
+        process: updated,
+        message: '作业信息已更新，预估时间已按当前时刻刷新',
+      }
     }
 
     const updated = await prisma.process.update({

@@ -81,7 +81,8 @@ export default function RegisterPage() {
           <p className="text-gray-600 mb-6">
             提交您的GPU作业申请（如深度学习训练、模型推理等），
             说明作业用途和预估运行时间。
-            系统会自动跟踪GPU使用状态，超过预估时间将会提醒管理员。
+            系统会自动跟踪GPU使用状态，超过预估时间加宽限时间后将自动终止。
+            如果作业还需要继续运行，可以再次提交同一服务器和 PID 来刷新预估时间。
           </p>
           
           {message && (
@@ -165,7 +166,8 @@ export default function RegisterPage() {
                   <option value="hours">小时</option>
                 </select>
               </div>
-              <p className="text-xs text-gray-500 mt-1">超过此时间会提醒管理员确认是否结束作业</p>
+              <p className="text-xs text-gray-500 mt-1">超过预估时间加系统宽限时间后，作业会被自动终止。</p>
+              <p className="text-xs text-gray-500 mt-1">如果该作业已经登记过，再次提交会按“从现在起再运行这么久”刷新预估时间。</p>
             </div>
 
             <div>

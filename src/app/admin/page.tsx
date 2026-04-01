@@ -24,7 +24,7 @@ interface Settings {
 
 export default function AdminPage() {
   const [servers, setServers] = useState<Server[]>([])
-  const [settings, setSettings] = useState<Settings>({ autoScan: true, scanInterval: 60, anonProcessThreshold: 360 })
+  const [settings, setSettings] = useState<Settings>({ autoScan: true, scanInterval: 60, anonProcessThreshold: 120 })
   const [showAddModal, setShowAddModal] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showPasswordModal, setShowPasswordModal] = useState(false)
@@ -303,8 +303,9 @@ export default function AdminPage() {
                 <input type="number" value={settings.scanInterval} onChange={(e) => handleSettingsChange('scanInterval', parseInt(e.target.value))} className="w-full px-3 py-2 border rounded-md" min={10} />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">匿名进程超时（分钟）</label>
-                <input type="number" value={settings.anonProcessThreshold || 360} onChange={(e) => handleSettingsChange('anonProcessThreshold', parseInt(e.target.value))} className="w-full px-3 py-2 border rounded-md" min={60} />
+                <label className="block text-sm font-medium mb-1">自动终止宽限时间（分钟）</label>
+                <input type="number" value={settings.anonProcessThreshold || 120} onChange={(e) => handleSettingsChange('anonProcessThreshold', parseInt(e.target.value))} className="w-full px-3 py-2 border rounded-md" min={60} />
+                <p className="mt-1 text-xs text-gray-500">未登记进程运行超过该时间会被自动终止；已登记进程则会在“预估时间 + 该时间”后自动终止。</p>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Cron 调用密钥</label>

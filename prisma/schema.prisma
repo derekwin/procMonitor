@@ -47,6 +47,6 @@ model Settings {
   id                 String  @id @default("default")
   autoScan           Boolean @default(true)
   scanInterval       Int     @default(60) // in seconds
-  anonProcessThreshold Int   @default(360) // anonymous process threshold in minutes (default 6 hours)
+  anonProcessThreshold Int   @default(120) // grace period in minutes for auto kill
   cronSecret         String?
 }

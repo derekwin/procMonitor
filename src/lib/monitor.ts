@@ -14,6 +14,35 @@ type ProcessWithServer = Prisma.ProcessGetPayload<{
   }
 }>
 
+function getGracePeriodMinutes(settings: { anonProcessThreshold?: number | null } | null) {
+  return settings?.anonProcessThreshold || 120
+}
+
+function getRuntimeMinutes(actualStartTime: Date) {
+  return (Date.now() - new Date(actualStartTime).getTime()) / 1000 / 60
+}
+
+function isPastAutoKillThreshold(
+  process: {
+    actualStartTime: Date
+    isAnonymous: boolean
+    estimatedDuration: number | null
+  },
+  gracePeriodMinutes: number,
+) {
+  const runtimeMinutes = getRuntimeMinutes(process.actualStartTime)
+
+  if (process.isAnonymous) {
+    return runtimeMinutes > gracePeriodMinutes
+  }
+
+  if (!process.estimatedDuration) {
+    return false
+  }
+
+  return runtimeMinutes > process.estimatedDuration + gracePeriodMinutes
+}
+
 async function syncServerProcesses(
   serverId: string,
   scannedProcesses: Awaited<ReturnType<typeof getProcessList>>,
@@ -66,15 +95,24 @@ async function syncServerProcesses(
 export async function scanServers() {
   await migrateLegacyServerPasswords()
 
-  const servers = await prisma.server.findMany({
-    orderBy: { createdAt: 'desc' },
-  })
+  const [servers, settings] = await Promise.all([
+    prisma.server.findMany({
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.settings.findUnique({
+      where: { id: 'default' },
+      select: { anonProcessThreshold: true },
+    }),
+  ])
+
+  const gracePeriodMinutes = getGracePeriodMinutes(settings)
 
   const results: Array<{
     serverId: string
     serverName: string
     success: boolean
     processCount?: number
+    autoKilledCount?: number
     error?: string
   }> = []
 
@@ -85,14 +123,48 @@ export async function scanServers() {
       conn = await connectToServer(server)
       const gpuProcesses = await getProcessList(conn)
       await syncServerProcesses(server.id, gpuProcesses)
+      const currentProcesses = await prisma.process.findMany({
+        where: { serverId: server.id },
+      })
+
+      let autoKilledCount = 0
+
+      for (const process of currentProcesses) {
+        if (!isPastAutoKillThreshold(process, gracePeriodMinutes)) {
+          continue
+        }
+
+        try {
+          await killProcess(conn, process.pid, server.password)
+          await prisma.process.delete({
+            where: { id: process.id },
+          })
+          autoKilledCount += 1
+        } catch (error) {
+          results.push({
+            serverId: server.id,
+            serverName: server.name,
+            success: false,
+            processCount: gpuProcesses.length,
+            autoKilledCount,
+            error: `自动终止进程 ${process.pid} 失败: ${error instanceof Error ? error.message : String(error)}`,
+          })
+          throw error
+        }
+      }
 
       results.push({
         serverId: server.id,
         serverName: server.name,
         success: true,
         processCount: gpuProcesses.length,
+        autoKilledCount,
       })
     } catch (error) {
+      if (results.some((result) => result.serverId === server.id && result.error)) {
+        continue
+      }
+
       results.push({
         serverId: server.id,
         serverName: server.name,
@@ -127,22 +199,9 @@ export async function listOvertimeProcesses(): Promise<ProcessWithServer[]> {
     listProcesses(),
   ])
 
-  const now = Date.now()
-  const anonThresholdMinutes = settings?.anonProcessThreshold || 360
+  const gracePeriodMinutes = getGracePeriodMinutes(settings)
 
-  return processes.filter((process) => {
-    const runtimeMinutes = (now - new Date(process.actualStartTime).getTime()) / 1000 / 60
-
-    if (process.isAnonymous) {
-      return runtimeMinutes > anonThresholdMinutes
-    }
-
-    if (!process.estimatedDuration) {
-      return false
-    }
-
-    return runtimeMinutes > process.estimatedDuration
-  })
+  return processes.filter((process) => isPastAutoKillThreshold(process, gracePeriodMinutes))
 }
 
 export async function terminateTrackedProcess(processId: string) {
