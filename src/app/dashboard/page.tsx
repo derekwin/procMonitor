@@ -128,7 +128,7 @@ export default function DashboardPage() {
       return runtimeMinutes > settings.anonProcessThreshold
     }
     if (process.estimatedDuration) {
-      return runtimeMinutes > process.estimatedDuration + settings.anonProcessThreshold
+      return runtimeMinutes > process.estimatedDuration
     }
     return false
   }

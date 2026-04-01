@@ -57,7 +57,7 @@ export default function Home() {
           <h3 className="text-lg font-semibold mb-2">使用说明</h3>
           <ul className="list-disc list-inside text-gray-600 space-y-1">
             <li>通过&quot;申请作业&quot;提交您的 GPU 作业信息，并填写用途和预估运行时间</li>
-            <li>如果作业需要继续运行，可再次提交同一服务器和 PID，系统会按当前时刻刷新预估时间</li>
+            <li>如果作业需要继续运行，可再次提交同一服务器和 PID，更新预估时间；计时仍按开始时间 + 预估时间计算</li>
             <li>提交后可在作业看板查看自己的作业是否已被识别和登记</li>
             <li>系统自动扫描GPU进程，识别深度学习训练、推理等作业</li>
             <li>未登记进程超过系统宽限时间，或已登记作业超过“预估时间 + 宽限时间”后，会被自动终止</li>

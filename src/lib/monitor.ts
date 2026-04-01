@@ -22,6 +22,27 @@ function getRuntimeMinutes(actualStartTime: Date) {
   return (Date.now() - new Date(actualStartTime).getTime()) / 1000 / 60
 }
 
+function isPastOvertimeThreshold(
+  process: {
+    actualStartTime: Date
+    isAnonymous: boolean
+    estimatedDuration: number | null
+  },
+  gracePeriodMinutes: number,
+) {
+  const runtimeMinutes = getRuntimeMinutes(process.actualStartTime)
+
+  if (process.isAnonymous) {
+    return runtimeMinutes > gracePeriodMinutes
+  }
+
+  if (!process.estimatedDuration) {
+    return false
+  }
+
+  return runtimeMinutes > process.estimatedDuration
+}
+
 function isPastAutoKillThreshold(
   process: {
     actualStartTime: Date
@@ -201,7 +222,7 @@ export async function listOvertimeProcesses(): Promise<ProcessWithServer[]> {
 
   const gracePeriodMinutes = getGracePeriodMinutes(settings)
 
-  return processes.filter((process) => isPastAutoKillThreshold(process, gracePeriodMinutes))
+  return processes.filter((process) => isPastOvertimeThreshold(process, gracePeriodMinutes))
 }
 
 export async function terminateTrackedProcess(processId: string) {
