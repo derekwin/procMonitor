@@ -7,6 +7,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+RUN echo 'DATABASE_URL="file:./dev.db"' > .env.build
 RUN npx prisma generate
 RUN npm run build
 
@@ -19,7 +20,6 @@ COPY --from=builder --chown=nextjs:nodejs .next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs .next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/package.json ./
-COPY --from=builder /app/.env ./.env
 USER nextjs
 EXPOSE 3000
 CMD ["node", "server.js"]

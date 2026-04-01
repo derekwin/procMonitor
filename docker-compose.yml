@@ -1,4 +1,4 @@
-version: '3'
+version: '3.8'
 
 services:
   app:
@@ -6,7 +6,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - DATABASE_URL=/app/data/dev.db
+      - DATABASE_URL=/app/data/proc.db
       - ADMIN_SECRET=change-this-in-production
     volumes:
       - ./data:/app/data

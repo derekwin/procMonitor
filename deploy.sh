@@ -16,11 +16,14 @@ docker compose up -d
 
 # Wait for container to be ready
 echo "Waiting for app to be ready..."
-sleep 5
+sleep 8
+
+# Push DB schema
+echo "Setting up database..."
+docker compose exec -T app npx prisma db push
 
 # Run seed to create default admin
 echo "Creating admin user..."
-docker compose exec -T app npx prisma db push
 docker compose exec -T app npx tsx prisma/seed.ts || echo "Admin may already exist"
 
 echo ""
