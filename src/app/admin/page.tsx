@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { addServer, testServerConnection, getServers, deleteServer } from '@/actions/server'
 import { logoutAdmin } from '@/actions/auth'
 import { getSettings, updateSettings } from '@/actions/settings'
+import { changeAdminPassword } from '@/actions/admin'
 import { useRouter } from 'next/navigation'
 
 interface Server {
@@ -24,6 +25,7 @@ export default function AdminPage() {
   const [settings, setSettings] = useState<Settings>({ autoScan: true, scanInterval: 60 })
   const [showAddModal, setShowAddModal] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
     host: '',
@@ -31,8 +33,11 @@ export default function AdminPage() {
     username: '',
     password: '',
   })
+  const [passwordData, setPasswordData] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' })
   const [testing, setTesting] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [changingPassword, setChangingPassword] = useState(false)
+  const [passwordMsg, setPasswordMsg] = useState('')
   const router = useRouter()
 
   useEffect(() => {
@@ -86,17 +91,44 @@ export default function AdminPage() {
     await updateSettings({ autoScan: newSettings.autoScan, scanInterval: newSettings.scanInterval })
   }
 
+  const handlePasswordChange = async () => {
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setPasswordMsg('两次输入的新密码不一致')
+      return
+    }
+    if (passwordData.newPassword.length < 6) {
+      setPasswordMsg('新密码长度至少6位')
+      return
+    }
+    setChangingPassword(true)
+    const result = await changeAdminPassword(passwordData.oldPassword, passwordData.newPassword)
+    setChangingPassword(false)
+    if (result.success) {
+      setPasswordMsg('密码修改成功')
+      setTimeout(() => {
+        setShowPasswordModal(false)
+        setPasswordData({ oldPassword: '', newPassword: '', confirmPassword: '' })
+        setPasswordMsg('')
+      }, 1500)
+    } else {
+      setPasswordMsg(result.error || '修改失败')
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-100">
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto py-6 px-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold">管理员后台</h1>
           <div className="flex gap-4">
+            <button onClick={() => setShowPasswordModal(true)} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
+              修改密码
+            </button>
             <button onClick={() => setShowSettings(true)} className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600">
               设置
             </button>
             <a href="/admin/alerts" className="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600">
-              超时进程提醒
+              超时作业提醒
             </a>
             <button onClick={handleLogout} className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600">
               退出登录
@@ -208,6 +240,41 @@ export default function AdminPage() {
             <button onClick={() => setShowSettings(false)} className="w-full mt-4 px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600">
               关闭
             </button>
+          </div>
+        </div>
+      )}
+
+      {showPasswordModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-lg w-[400px]">
+            <h3 className="text-xl font-semibold mb-4">修改管理员密码</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">原密码</label>
+                <input type="password" value={passwordData.oldPassword} onChange={(e) => setPasswordData({ ...passwordData, oldPassword: e.target.value })} className="w-full px-3 py-2 border rounded-md" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">新密码</label>
+                <input type="password" value={passwordData.newPassword} onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })} className="w-full px-3 py-2 border rounded-md" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">确认新密码</label>
+                <input type="password" value={passwordData.confirmPassword} onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })} className="w-full px-3 py-2 border rounded-md" />
+              </div>
+              {passwordMsg && (
+                <div className={'p-3 rounded-md text-sm ' + (passwordMsg.includes('成功') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700')}>
+                  {passwordMsg}
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2 mt-4">
+              <button onClick={handlePasswordChange} disabled={changingPassword || !passwordData.oldPassword || !passwordData.newPassword} className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50">
+                {changingPassword ? '修改中...' : '确认修改'}
+              </button>
+              <button onClick={() => { setShowPasswordModal(false); setPasswordMsg('') }} className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">
+                取消
+              </button>
+            </div>
           </div>
         </div>
       )}

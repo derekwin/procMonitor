@@ -110,6 +110,11 @@ export default function RegisterPage() {
                   placeholder="进程ID"
                   required
                 />
+                <div className="mt-2 p-3 bg-blue-50 rounded text-xs text-gray-600">
+                  <p className="font-medium mb-1">查询命令：</p>
+                  <code className="bg-gray-100 px-1 rounded">ps -aux | grep 用户名</code>
+                  <p className="mt-1">或 <code className="bg-gray-100 px-1 rounded">top -u 用户名</code></p>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">作业用户 <span className="text-red-500">*</span></label>
@@ -121,6 +126,11 @@ export default function RegisterPage() {
                   placeholder="运行该作业的用户"
                   required
                 />
+                <div className="mt-2 p-3 bg-blue-50 rounded text-xs text-gray-600">
+                  <p className="font-medium mb-1">查询命令：</p>
+                  <code className="bg-gray-100 px-1 rounded">whoami</code>
+                  <p className="mt-1">查看当前用户名</p>
+                </div>
               </div>
             </div>
 
@@ -134,6 +144,11 @@ export default function RegisterPage() {
                 placeholder="如: python train.py"
                 required
               />
+              <div className="mt-2 p-3 bg-blue-50 rounded text-xs text-gray-600">
+                <p className="font-medium mb-1">查询命令：</p>
+                <code className="bg-gray-100 px-1 rounded">ps -ef | grep python</code>
+                <p className="mt-1">查看所有python进程</p>
+              </div>
             </div>
 
             <div>

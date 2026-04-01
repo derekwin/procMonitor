@@ -64,6 +64,12 @@ export default function DashboardPage() {
     return `${hours}小时${mins}分钟`
   }
 
+  const getRuntimeMinutes = (startTime: Date) => {
+    const start = new Date(startTime)
+    const now = new Date()
+    return Math.floor((now.getTime() - start.getTime()) / 1000 / 60)
+  }
+
   const isOverTime = (process: Process) => {
     const start = new Date(process.actualStartTime)
     const now = new Date()
@@ -87,11 +93,39 @@ export default function DashboardPage() {
 
   const overTimeCount = processes.filter(isOverTime).length
 
+  // Statistics calculations
+  const userStats = processes.reduce((acc, p) => {
+    if (!acc[p.username]) {
+      acc[p.username] = { count: 0, totalMinutes: 0 }
+    }
+    acc[p.username].count++
+    acc[p.username].totalMinutes += getRuntimeMinutes(p.actualStartTime)
+    return acc
+  }, {} as Record<string, { count: number; totalMinutes: number }>)
+
+  const serverStats = processes.reduce((acc, p) => {
+    const serverName = p.server.name
+    if (!acc[serverName]) {
+      acc[serverName] = { count: 0, totalMinutes: 0, users: new Set() }
+    }
+    acc[serverName].count++
+    acc[serverName].totalMinutes += getRuntimeMinutes(p.actualStartTime)
+    acc[serverName].users.add(p.username)
+    return acc
+  }, {} as Record<string, { count: number; totalMinutes: number; users: Set<string> }>)
+
+  const formatTime = (minutes: number) => {
+    if (minutes < 60) return `${minutes}分钟`
+    const hours = Math.floor(minutes / 60)
+    const mins = minutes % 60
+    return `${hours}小时${mins}分钟`
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto py-6 px-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">进程看板</h1>
+          <h1 className="text-2xl font-bold text-gray-900">作业看板</h1>
           <div className="flex gap-4">
             <button
               onClick={handleManualScan}
@@ -103,13 +137,81 @@ export default function DashboardPage() {
             <Link href="/" className="px-4 py-2 text-blue-500 hover:underline">返回首页</Link>
             {overTimeCount > 0 && (
               <Link href="/admin/alerts" className="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600">
-                有{overTimeCount}个超时进程
+                有{overTimeCount}个超时作业
               </Link>
             )}
           </div>
         </div>
       </header>
       <main className="max-w-7xl mx-auto py-6 px-4">
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white p-4 rounded-lg shadow">
+            <div className="text-sm text-gray-500">总作业数</div>
+            <div className="text-2xl font-bold text-blue-600">{processes.length}</div>
+          </div>
+          <div className="bg-white p-4 rounded-lg shadow">
+            <div className="text-sm text-gray-500">已注册作业</div>
+            <div className="text-2xl font-bold text-green-600">{processes.filter(p => !p.isAnonymous).length}</div>
+          </div>
+          <div className="bg-white p-4 rounded-lg shadow">
+            <div className="text-sm text-gray-500">匿名作业</div>
+            <div className="text-2xl font-bold text-gray-600">{processes.filter(p => p.isAnonymous).length}</div>
+          </div>
+          <div className="bg-white p-4 rounded-lg shadow">
+            <div className="text-sm text-gray-500">超时作业</div>
+            <div className="text-2xl font-bold text-red-600">{overTimeCount}</div>
+          </div>
+        </div>
+
+        {/* User Statistics */}
+        <div className="bg-white rounded-lg shadow mb-6 p-4">
+          <h3 className="text-lg font-semibold mb-3">用户作业统计</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {Object.entries(userStats).map(([user, stats]) => (
+              <div key={user} className="bg-gray-50 p-3 rounded">
+                <div className="font-medium text-sm">{user}</div>
+                <div className="text-xs text-gray-500">
+                  作业数: {stats.count} | 运行时长: {formatTime(stats.totalMinutes)}
+                </div>
+              </div>
+            ))}
+            {Object.keys(userStats).length === 0 && (
+              <div className="text-gray-500 text-sm col-span-4">暂无数据</div>
+            )}
+          </div>
+        </div>
+
+        {/* Server Statistics */}
+        <div className="bg-white rounded-lg shadow mb-6 p-4">
+          <h3 className="text-lg font-semibold mb-3">服务器负载统计</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {Object.entries(serverStats).map(([server, stats]) => (
+              <div key={server} className="bg-gray-50 p-3 rounded">
+                <div className="font-medium text-sm">{server}</div>
+                <div className="text-xs text-gray-500">
+                  作业数: {stats.count} | 用户数: {stats.users.size} | 总运行时长: {formatTime(stats.totalMinutes)}
+                </div>
+                <div className="mt-2">
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-blue-500 h-2 rounded-full" 
+                      style={{ width: `${Math.min(100, stats.count * 20)}%` }}
+                    />
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    {stats.count < 3 ? '空闲' : stats.count < 6 ? '正常' : '繁忙'}
+                  </div>
+                </div>
+              </div>
+            ))}
+            {Object.keys(serverStats).length === 0 && (
+              <div className="text-gray-500 text-sm col-span-3">暂无数据</div>
+            )}
+          </div>
+        </div>
+
+        {/* Filter */}
         <div className="flex gap-2 mb-4">
           <button
             onClick={() => setFilter('all')}
@@ -157,7 +259,7 @@ export default function DashboardPage() {
                         <div className="text-sm font-medium">{process.server.name}</div>
                         <div className="text-xs text-gray-500">{process.server.host}</div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">{process.pid}</td>
+                      <td className="px-6 py-4 whitespace-nowrap font-mono text-sm">{process.pid}</td>
                       <td className="px-6 py-4 whitespace-nowrap">{process.username}</td>
                       <td className="px-6 py-4 whitespace-nowrap">{process.programName}</td>
                       <td className="px-6 py-4">{process.description || '-'}</td>
@@ -181,7 +283,7 @@ export default function DashboardPage() {
                 {filteredProcesses.length === 0 && (
                   <tr>
                     <td colSpan={8} className="px-6 py-4 text-center text-gray-500">
-                      暂无进程数据
+                      暂无作业数据
                     </td>
                   </tr>
                 )}
