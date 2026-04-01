@@ -166,7 +166,7 @@ export default function AdminPage() {
       return
     }
 
-    setCronSecret(result.cronSecret)
+    setCronSecret(result.cronSecret ?? '')
     alert(result.enabled ? 'Cron 密钥已保存' : 'Cron 外部调用已禁用')
   }
 
