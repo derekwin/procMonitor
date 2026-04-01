@@ -71,8 +71,9 @@ export default function RegisterPage() {
       <main className="max-w-2xl mx-auto py-6 px-4">
         <div className="bg-white p-6 rounded-lg shadow">
           <p className="text-gray-600 mb-6">
-            提交您的长时作业申请，说明作业用途和预估运行时间。
-            系统会自动跟踪作业运行状态，超过预估时间将会提醒管理员。
+            提交您的GPU作业申请（如深度学习训练、模型推理等），
+            说明作业用途和预估运行时间。
+            系统会自动跟踪GPU使用状态，超过预估时间将会提醒管理员。
           </p>
           
           {message && (

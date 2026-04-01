@@ -1,6 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+const SYSTEM_USERS = ['root', 'mysql', 'postgres', 'redis', 'nginx', 'apache', 'systemd', 'dbus', 'snap']
+const SYSTEM_PROCESSES = ['systemd', 'sshd', 'cron', 'rsyslog', 'network', 'dbus', 'snapd', 'udisksd', 'polkitd', 'accounts-daemon', 'containerd', 'docker', 'k3s', 'kubelet']
+
+function isSystemProcess(user: string, command: string): boolean {
+  if (SYSTEM_USERS.includes(user.toLowerCase())) return true
+  for (const sysProc of SYSTEM_PROCESSES) {
+    if (command.toLowerCase().includes(sysProc)) return true
+  }
+  return false
+}
+
+function isGpuProcess(command: string): boolean {
+  const gpuKeywords = [
+    'python', 'torch', 'tensorflow', 'cuda', 'cudnn', 'nvidia',
+    'python3', 'train', 'inference', 'deep', 'ml', 'ai',
+    'python', 'julia', 'R', 'rstudio',
+    'accelerate', 'deepspeed', 'xformers', 'vllm', 'llama', 'transformers'
+  ]
+  const lower = command.toLowerCase()
+  return gpuKeywords.some(k => lower.includes(k))
+}
+
 export async function POST(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
@@ -17,7 +39,10 @@ export async function POST(request: NextRequest) {
   for (const server of servers) {
     try {
       const conn = await connectToServer(Client, server)
-      const processes = await getProcessList(conn)
+      
+      const gpuProcesses = await getGpuProcessList(conn)
+      const allProcesses = await getProcessList(conn)
+      
       conn.end()
 
       const registeredProcesses = await prisma.process.findMany({
@@ -25,19 +50,22 @@ export async function POST(request: NextRequest) {
       })
 
       for (const regProcess of registeredProcesses) {
-        const exists = processes.find(p => p.pid === regProcess.pid)
+        const exists = allProcesses.find(p => p.pid === regProcess.pid)
         if (!exists) {
           await prisma.process.delete({ where: { id: regProcess.id } })
         }
       }
 
       const dbPids = registeredProcesses.map(p => p.pid)
-      const anonymousProcesses = processes.filter(p => !dbPids.includes(p.pid))
+      const newProcesses = allProcesses.filter(p => 
+        !dbPids.includes(p.pid) && 
+        !isSystemProcess(p.user, p.command) &&
+        isGpuProcess(p.command)
+      )
 
-      for (const proc of anonymousProcesses) {
-        if (proc.command.startsWith('ps ') || proc.command.startsWith('ps aux')) continue
-        
+      for (const proc of newProcesses) {
         try {
+          const programName = proc.command.split(' ')[0].split('/').pop() || proc.command
           await prisma.process.upsert({
             where: {
               serverId_pid: { serverId: server.id, pid: proc.pid }
@@ -46,12 +74,12 @@ export async function POST(request: NextRequest) {
               serverId: server.id,
               pid: proc.pid,
               username: proc.user,
-              programName: proc.command.split(' ')[0].split('/').pop() || proc.command,
+              programName,
               isAnonymous: true,
             },
             update: {
               username: proc.user,
-              programName: proc.command.split(' ')[0].split('/').pop() || proc.command,
+              programName,
             },
           })
         } catch (e) {}
@@ -61,7 +89,7 @@ export async function POST(request: NextRequest) {
         serverId: server.id,
         serverName: server.name,
         success: true,
-        processCount: processes.length,
+        processCount: gpuProcesses.length,
       })
     } catch (error) {
       results.push({
@@ -134,6 +162,41 @@ async function connectToServer(Client: any, server: any): Promise<any> {
       port: server.port,
       username: server.username,
       password: server.password,
+    })
+  })
+}
+
+async function getGpuProcessList(conn: any): Promise<any[]> {
+  return new Promise((resolve) => {
+    conn.exec('nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader 2>/dev/null', (err: any, stream: any) => {
+      if (err || !stream) {
+        resolve([])
+        return
+      }
+
+      let output = ''
+      stream.on('data', (data: Buffer) => { output += data.toString() })
+      stream.on('close', () => {
+        const processes: any[] = []
+        if (!output.trim()) {
+          resolve(processes)
+          return
+        }
+        
+        const lines = output.trim().split('\n')
+        for (const line of lines) {
+          const parts = line.split(',').map(p => p.trim())
+          if (parts.length >= 2) {
+            processes.push({
+              pid: parseInt(parts[0]),
+              user: 'unknown',
+              command: parts[1],
+              gpuMemory: parts[2] || ''
+            })
+          }
+        }
+        resolve(processes)
+      })
     })
   })
 }

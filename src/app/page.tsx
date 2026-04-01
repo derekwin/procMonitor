@@ -1,11 +1,14 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 
 export default function Home() {
+  redirect('/dashboard')
+  
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto py-6 px-4 flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-900">作业协调申请系统</h1>
+          <h1 className="text-3xl font-bold text-gray-900">GPU作业协调申请系统</h1>
           <div className="flex gap-4">
             <Link 
               href="/login" 
@@ -19,17 +22,17 @@ export default function Home() {
       <main className="max-w-7xl mx-auto py-6 px-4">
         <div className="text-center mb-8">
           <p className="text-xl text-gray-600">
-            分布式服务器作业进程管理与协调平台
+            分布式GPU服务器作业管理与监控平台
           </p>
         </div>
         
         <div className="grid md:grid-cols-2 gap-6">
           <div className="bg-white p-6 rounded-lg shadow">
-            <h2 className="text-xl font-semibold mb-4">申请作业</h2>
+            <h2 className="text-xl font-semibold mb-4">申请GPU作业</h2>
             <p className="text-gray-600 mb-4">
-              如果您需要长时间运行作业（如模型训练、数据处理等），
+              如果您需要长时间运行GPU作业（如深度学习训练、模型推理等），
               请在此注册您的作业，说明用途和预估运行时间。
-              系统会自动跟踪作业运行状态。
+              系统会自动跟踪GPU使用状态。
             </p>
             <Link 
               href="/register" 
@@ -39,9 +42,9 @@ export default function Home() {
             </Link>
           </div>
           <div className="bg-white p-6 rounded-lg shadow">
-            <h2 className="text-xl font-semibold mb-4">作业看板</h2>
+            <h2 className="text-xl font-semibold mb-4">GPU作业看板</h2>
             <p className="text-gray-600 mb-4">
-              查看所有服务器上的作业运行状态，包括已申请和未登记的作业。
+              查看所有GPU服务器上的作业运行状态，包括已申请和未登记的作业。
               超过预估时间的作业将会被标记提醒。
             </p>
             <Link 
@@ -56,9 +59,9 @@ export default function Home() {
         <div className="mt-8 bg-blue-50 p-6 rounded-lg">
           <h3 className="text-lg font-semibold mb-2">使用说明</h3>
           <ul className="list-disc list-inside text-gray-600 space-y-1">
-            <li>普通用户：通过"申请作业"提交您的作业信息</li>
-            <li>管理员：通过"管理员登录"管理服务器和监控作业</li>
-            <li>系统每分钟自动扫描所有服务器上的作业运行状态</li>
+            <li>普通用户：通过"申请作业"提交您的GPU作业信息</li>
+            <li>管理员：通过"管理员登录"管理GPU服务器和监控作业</li>
+            <li>系统自动扫描GPU进程，识别深度学习训练、推理等作业</li>
             <li>匿名作业超过6小时，或超过预估时间的作业将被标记</li>
           </ul>
         </div>
