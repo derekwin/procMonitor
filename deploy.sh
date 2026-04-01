@@ -18,9 +18,9 @@ docker compose up -d
 echo "Waiting for app to be ready..."
 sleep 8
 
-# Push DB schema (use local prisma)
+# Push DB schema only (skip generate - already built)
 echo "Setting up database..."
-docker compose exec -T app npx --yes prisma@5.22.0 db push
+docker compose exec -T app npx --yes prisma@5.22.0 db push --skip-generate
 
 # Run seed to create default admin
 echo "Creating admin user..."
