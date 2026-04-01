@@ -1,0 +1,44 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Server {
+  id        String     @id @default(cuid())
+  name      String
+  host      String
+  port      Int        @default(22)
+  username  String
+  password  String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  processes Process[]
+}
+
+model Process {
+  id                String   @id @default(cuid())
+  serverId          String
+  server            Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  pid               Int
+  username          String
+  programName       String
+  description       String?
+  estimatedDuration Int?
+  actualStartTime   DateTime @default(now())
+  isAnonymous       Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([serverId, pid])
+}
+
+model Admin {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String
+  createdAt DateTime @default(now())
+}

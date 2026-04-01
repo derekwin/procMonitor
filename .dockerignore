@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+*.md
+!package.json
+!package-lock.json
+Dockerfile
+.dockerignore
+docker-compose*.yml
+*.env.local
+.dev.db
+prisma/migrations

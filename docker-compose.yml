@@ -1,0 +1,13 @@
+version: '3'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=/app/data/dev.db
+      - ADMIN_SECRET=change-this-in-production
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
