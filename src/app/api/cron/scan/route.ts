@@ -18,8 +18,8 @@ export async function POST(request: NextRequest) {
     try {
       const conn = await connectToServer(Client, server)
       
-      // Get GPU processes with debug info
-      const { processes: gpuProcesses, debug } = await getGpuProcessListWithDebug(conn)
+      // Use nvtop to get GPU processes
+      const gpuProcesses = await getGpuProcessesFromNvtop(conn)
       conn.end()
 
       const registeredProcesses = await prisma.process.findMany({
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
         if (dbPids.includes(proc.pid)) continue
         
         try {
-          const programName = proc.command || proc.program || 'unknown'
+          const programName = proc.command || 'unknown'
           await prisma.process.upsert({
             where: {
               serverId_pid: { serverId: server.id, pid: proc.pid }
@@ -66,7 +66,6 @@ export async function POST(request: NextRequest) {
         serverName: server.name,
         success: true,
         processCount: gpuProcesses.length,
-        debug
       })
     } catch (error) {
       results.push({
@@ -107,6 +106,7 @@ export async function DELETE(request: NextRequest) {
 
   try {
     const conn = await connectToServer(Client, server)
+    // Use kill command to terminate the process
     await killProcess(conn, parseInt(pid))
     conn.end()
     await prisma.process.delete({ where: { id: processId } })
@@ -143,100 +143,193 @@ async function connectToServer(Client: any, server: any): Promise<any> {
   })
 }
 
-async function getGpuProcessListWithDebug(conn: any): Promise<{ processes: any[]; debug: any }> {
-  const debug: any = {}
-  
-  // Method 1: nvidia-smi (preferred)
-  const nvidiaSmiResult = await runCommand(conn, 'nvidia-smi --query-compute-apps=pid,process_name,used_memory,username --format=csv,noheader 2>&1')
-  debug.nvidiaSmi = nvidiaSmiResult
-  
-  if (nvidiaSmiResult.success && nvidiaSmiResult.output.trim()) {
-    const processes: any[] = []
-    const lines = nvidiaSmiResult.output.trim().split('\n')
-    for (const line of lines) {
-      if (!line.trim()) continue
-      const parts = line.split(',').map(p => p.trim())
-      if (parts.length >= 2) {
-        processes.push({
-          pid: parseInt(parts[0]) || 0,
-          user: parts[3] || 'unknown',
-          command: parts[1] || 'unknown',
-          gpuMemory: parts[2] || ''
-        })
-      }
-    }
-    if (processes.length > 0) {
-      return { processes, debug }
-    }
-  }
-
-  // Method 2: Check for CUDA processes in ps
-  const psResult = await runCommand(conn, 'ps -eo pid,user,args --no-headers | head -200')
-  debug.ps = psResult
-  
-  if (psResult.success) {
-    const processes: any[] = []
-    const lines = psResult.output.trim().split('\n')
-    
-    const gpuKeywords = [
-      'python', 'torch', 'tensorflow', 'cuda', 'cudnn', 'nvidia',
-      'train', 'inference', 'deep', 'ml', 'ai', 'model',
-      'accelerate', 'deepspeed', 'xformers', 'vllm', 'llama',
-      'jupyter', 'notebook', 'python3'
-    ]
-    
-    for (const line of lines) {
-      const lower = line.toLowerCase()
-      if (gpuKeywords.some(k => lower.includes(k))) {
-        const parts = line.trim().split(/\s+/)
-        if (parts.length >= 3) {
-          const pid = parseInt(parts[0])
-          const user = parts[1]
-          const command = parts.slice(2).join(' ')
-          const programName = command.split(' ')[0].split('/').pop() || command
-          
-          processes.push({
-            pid,
-            user,
-            command: programName,
-            gpuMemory: ''
-          })
-        }
-      }
-    }
-    
-    if (processes.length > 0) {
-      return { processes, debug }
-    }
-  }
-
-  // Method 3: Check nvidia-smi output directly
-  const nvidiaFullResult = await runCommand(conn, 'nvidia-smi 2>&1')
-  debug.nvidiaFull = nvidiaFullResult.success ? 'Output available' : nvidiaFullResult.error
-  
-  return { processes: [], debug }
-}
-
-function runCommand(conn: any, command: string): Promise<{ success: boolean; output: string; error?: string }> {
+async function getGpuProcessesFromNvtop(conn: any): Promise<any[]> {
   return new Promise((resolve) => {
+    // Use nvidia-smi pmon to get GPU processes
+    const command = 'nvidia-smi pmon -c 1 2>&1'
+    
     conn.exec(command, (err: any, stream: any) => {
       if (err || !stream) {
-        resolve({ success: false, output: '', error: String(err) })
+        resolve([])
         return
       }
 
       let output = ''
       stream.on('data', (data: Buffer) => { output += data.toString() })
       stream.on('close', () => {
-        resolve({ success: true, output })
+        if (!output.trim() || output.includes('not found') || output.includes('command not found')) {
+          resolve([])
+          return
+        }
+        
+        // Parse nvidia-smi pmon output
+        const processes = parseNvidiaSmiPmonOutput(output)
+        resolve(processes)
       })
     })
   })
 }
 
+function parseNvidiaSmiPmonOutput(output: string): any[] {
+  const processes: any[] = []
+  const lines = output.trim().split('\n')
+  
+  // Filter out display driver related processes
+  const excludedCommands = ['Xorg', 'X', 'gnome-shell', 'compiz', 'kwin', 'mutter', 'mate compositor']
+  
+  for (let i = 2; i < lines.length; i++) {
+    const line = lines[i].trim()
+    if (!line) continue
+    
+    const parts = line.split(/\s+/)
+    if (parts.length >= 10) {
+      const gpuId = parts[0]
+      const pidStr = parts[1]
+      const type = parts[2]
+      const command = parts[parts.length - 1]
+      
+      if (pidStr === '-' || !pidStr.match(/^\d+$/)) continue
+      
+      // Filter out display driver processes
+      const lowerCommand = command.toLowerCase()
+      if (excludedCommands.some(ex => lowerCommand.includes(ex.toLowerCase()))) continue
+      
+      const pid = parseInt(pidStr)
+      if (pid && pid > 0) {
+        processes.push({
+          pid,
+          gpuId: parseInt(gpuId),
+          type,
+          command: command || 'unknown',
+          user: 'unknown',
+          gpuMemory: ''
+        })
+      }
+    }
+  }
+  
+  return processes
+}
+
+async function getUserForPid(conn: any, pid: number): Promise<string> {
+  return new Promise((resolve) => {
+    conn.exec(`ps -o user= -p ${pid} 2>&1`, (err: any, stream: any) => {
+      if (err || !stream) {
+        resolve('unknown')
+        return
+      }
+      let output = ''
+      stream.on('data', (data: Buffer) => { output += data.toString() })
+      stream.on('close', () => {
+        resolve(output.trim() || 'unknown')
+      })
+    })
+  })
+}
+
+function parseNvtopOutput(output: string): any[] {
+  const processes: any[] = []
+  const lines = output.trim().split('\n')
+  
+  // nvtop output typically shows GPU processes in a table format
+  // Look for lines that contain process info (not headers, not empty)
+  
+  for (const line of lines) {
+    // Skip empty lines and headers
+    if (!line.trim() || line.toLowerCase().includes('gpu') || line.toLowerCase().includes('process')) {
+      continue
+    }
+    
+    // Try to extract PID - nvtop shows it in certain positions
+    // Format varies but typically: PID  USER  COMMAND  ... GPU ...
+    const pidMatch = line.match(/\b(\d+)\b/)
+    if (pidMatch) {
+      const pid = parseInt(pidMatch[1])
+      
+      // Extract user (usually appears after PID)
+      const userMatch = line.match(/\b(\w+)\b/)
+      const user = userMatch ? userMatch[1] : 'unknown'
+      
+      // Extract command (usually contains the program name)
+      const command = line.split(/\s+/).find(p => 
+        p.includes('python') || p.includes('torch') || p.includes('.py') || 
+        p.includes('train') || p.includes('node') || p.includes('.sh')
+      ) || line.split(/\s+/).slice(-1)[0] || 'unknown'
+      
+      if (pid && pid > 0) {
+        processes.push({
+          pid,
+          user: user !== 'GPU' && user !== 'PID' ? user : 'unknown',
+          command: command.split('/').pop() || command,
+          gpuMemory: ''
+        })
+      }
+    }
+  }
+  
+  return processes
+}
+
+function fallbackToNvidiaSmi(conn: any, resolve: (procs: any[]) => void) {
+  // Fallback to nvidia-smi
+  // Try multiple command formats as field names vary by driver version
+  const commands = [
+    'nvidia-smi --query-compute-apps=pid,process_name,used_memory,owner_name --format=csv,noheader 2>&1',
+    'nvidia-smi --query-compute-apps=pid,process_name,used_memory,compute_app --format=csv,noheader 2>&1',
+    'nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader 2>&1'
+  ]
+  
+  let cmdIndex = 0
+  
+  const tryCommand = () => {
+    if (cmdIndex >= commands.length) {
+      resolve([])
+      return
+    }
+    
+    conn.exec(commands[cmdIndex], (err: any, stream: any) => {
+      if (err || !stream) {
+        cmdIndex++
+        tryCommand()
+        return
+      }
+
+      let output = ''
+      stream.on('data', (data: Buffer) => { output += data.toString() })
+      stream.on('close', () => {
+        // If output is empty or contains error, try next command
+        if (!output.trim() || output.includes('not found') || output.includes('command not found') || output.includes('Invalid')) {
+          cmdIndex++
+          tryCommand()
+          return
+        }
+        
+        const processes: any[] = []
+        const lines = output.trim().split('\n')
+        for (const line of lines) {
+          if (!line.trim()) continue
+          const parts = line.split(',').map(p => p.trim())
+          if (parts.length >= 2) {
+            processes.push({
+              pid: parseInt(parts[0]) || 0,
+              user: parts[3] || parts[2] || 'unknown', // owner_name or compute_app may be in different positions
+              command: parts[1] || 'unknown',
+              gpuMemory: parts[2] || ''
+            })
+          }
+        }
+        resolve(processes)
+      })
+    })
+  }
+  
+  tryCommand()
+}
+
 async function killProcess(conn: any, pid: number): Promise<boolean> {
   return new Promise((resolve, reject) => {
-    conn.exec(`kill ${pid}`, (err: any, stream: any) => {
+    // Use kill command with sudo since admin user has sudo privileges
+    conn.exec(`sudo kill ${pid}`, (err: any, stream: any) => {
       if (err) { reject(err); return }
       stream.on('close', () => { resolve(true) })
     })
