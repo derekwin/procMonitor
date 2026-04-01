@@ -205,6 +205,11 @@ export default function AdminPage() {
                 <label className="block text-sm font-medium mb-1">密码</label>
                 <input type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} className="w-full px-3 py-2 border rounded-md" />
               </div>
+              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 text-sm text-yellow-800">
+                <p className="font-medium mb-1">⚠️ 远程服务器需要配置 sudo 免密</p>
+                <p>为了能够终止超时的 GPU 进程，请在远程服务器上执行以下命令（需要先有 sudo 权限）：</p>
+                <pre className="mt-2 bg-white p-2 rounded text-xs">echo "你的用户名 ALL=(ALL) NOPASSWD: /bin/kill" | sudo tee /etc/sudoers.d/kill</pre>
+              </div>
               <button onClick={handleTestConnection} disabled={testing || !formData.host || !formData.username || !formData.password} className="w-full px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 disabled:opacity-50">
                 {testing ? '测试中...' : '测试连接'}
               </button>

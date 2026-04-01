@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { getOverTimeProcesses, refreshProcesses } from '@/actions/alerts'
 import { getSettings } from '@/actions/settings'
 import { killServerProcess } from '@/actions/monitor'
+import { checkAdminSession } from '@/actions/auth'
 import Link from 'next/link'
 
 interface Process {
@@ -27,8 +28,10 @@ export default function AlertsPage() {
   const [loading, setLoading] = useState(true)
   const [killing, setKilling] = useState<string | null>(null)
   const [scanning, setScanning] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
+    checkAdminSession().then(setIsAdmin)
     loadProcessesWithoutScan()
     loadSettingsAndStartInterval()
   }, [])

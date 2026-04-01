@@ -83,8 +83,13 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
+  const cookieHeader = request.headers.get('cookie') || ''
   
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  // Check if it's a cron request (internal) or admin request
+  const isCronRequest = cronSecret && authHeader === `Bearer ${cronSecret}`
+  const isAdminRequest = cookieHeader.includes('admin_session')
+  
+  if (!isCronRequest && !isAdminRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -106,7 +111,6 @@ export async function DELETE(request: NextRequest) {
 
   try {
     const conn = await connectToServer(Client, server)
-    // Use kill command to terminate the process
     await killProcess(conn, parseInt(pid))
     conn.end()
     await prisma.process.delete({ where: { id: processId } })
@@ -328,8 +332,8 @@ function fallbackToNvidiaSmi(conn: any, resolve: (procs: any[]) => void) {
 
 async function killProcess(conn: any, pid: number): Promise<boolean> {
   return new Promise((resolve, reject) => {
-    // Use kill command with sudo since admin user has sudo privileges
-    conn.exec(`sudo kill ${pid}`, (err: any, stream: any) => {
+    // Use sudo -n for non-interactive sudo (won't prompt for password)
+    conn.exec(`sudo -n kill ${pid}`, (err: any, stream: any) => {
       if (err) { reject(err); return }
       stream.on('close', () => { resolve(true) })
     })
