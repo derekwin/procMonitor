@@ -18,8 +18,8 @@ export async function POST(request: NextRequest) {
     try {
       const conn = await connectToServer(Client, server)
       
-      // Only get GPU processes from nvidia-smi
-      const gpuProcesses = await getGpuProcessList(conn)
+      // Get GPU processes with debug info
+      const { processes: gpuProcesses, debug } = await getGpuProcessListWithDebug(conn)
       conn.end()
 
       const registeredProcesses = await prisma.process.findMany({
@@ -66,6 +66,7 @@ export async function POST(request: NextRequest) {
         serverName: server.name,
         success: true,
         processCount: gpuProcesses.length,
+        debug
       })
     } catch (error) {
       results.push({
@@ -142,77 +143,93 @@ async function connectToServer(Client: any, server: any): Promise<any> {
   })
 }
 
-async function getGpuProcessList(conn: any): Promise<any[]> {
+async function getGpuProcessListWithDebug(conn: any): Promise<{ processes: any[]; debug: any }> {
+  const debug: any = {}
+  
+  // Method 1: nvidia-smi (preferred)
+  const nvidiaSmiResult = await runCommand(conn, 'nvidia-smi --query-compute-apps=pid,process_name,used_memory,username --format=csv,noheader 2>&1')
+  debug.nvidiaSmi = nvidiaSmiResult
+  
+  if (nvidiaSmiResult.success && nvidiaSmiResult.output.trim()) {
+    const processes: any[] = []
+    const lines = nvidiaSmiResult.output.trim().split('\n')
+    for (const line of lines) {
+      if (!line.trim()) continue
+      const parts = line.split(',').map(p => p.trim())
+      if (parts.length >= 2) {
+        processes.push({
+          pid: parseInt(parts[0]) || 0,
+          user: parts[3] || 'unknown',
+          command: parts[1] || 'unknown',
+          gpuMemory: parts[2] || ''
+        })
+      }
+    }
+    if (processes.length > 0) {
+      return { processes, debug }
+    }
+  }
+
+  // Method 2: Check for CUDA processes in ps
+  const psResult = await runCommand(conn, 'ps -eo pid,user,args --no-headers | head -200')
+  debug.ps = psResult
+  
+  if (psResult.success) {
+    const processes: any[] = []
+    const lines = psResult.output.trim().split('\n')
+    
+    const gpuKeywords = [
+      'python', 'torch', 'tensorflow', 'cuda', 'cudnn', 'nvidia',
+      'train', 'inference', 'deep', 'ml', 'ai', 'model',
+      'accelerate', 'deepspeed', 'xformers', 'vllm', 'llama',
+      'jupyter', 'notebook', 'python3'
+    ]
+    
+    for (const line of lines) {
+      const lower = line.toLowerCase()
+      if (gpuKeywords.some(k => lower.includes(k))) {
+        const parts = line.trim().split(/\s+/)
+        if (parts.length >= 3) {
+          const pid = parseInt(parts[0])
+          const user = parts[1]
+          const command = parts.slice(2).join(' ')
+          const programName = command.split(' ')[0].split('/').pop() || command
+          
+          processes.push({
+            pid,
+            user,
+            command: programName,
+            gpuMemory: ''
+          })
+        }
+      }
+    }
+    
+    if (processes.length > 0) {
+      return { processes, debug }
+    }
+  }
+
+  // Method 3: Check nvidia-smi output directly
+  const nvidiaFullResult = await runCommand(conn, 'nvidia-smi 2>&1')
+  debug.nvidiaFull = nvidiaFullResult.success ? 'Output available' : nvidiaFullResult.error
+  
+  return { processes: [], debug }
+}
+
+function runCommand(conn: any, command: string): Promise<{ success: boolean; output: string; error?: string }> {
   return new Promise((resolve) => {
-    // Try nvidia-smi first (most reliable)
-    conn.exec('nvidia-smi --query-compute-apps=pid,process_name,used_memory,username --format=csv,noheader 2>/dev/null', (err: any, stream: any) => {
+    conn.exec(command, (err: any, stream: any) => {
       if (err || !stream) {
-        resolve([])
+        resolve({ success: false, output: '', error: String(err) })
         return
       }
 
       let output = ''
       stream.on('data', (data: Buffer) => { output += data.toString() })
       stream.on('close', () => {
-        const processes: any[] = []
-        if (!output.trim()) {
-          // Try alternative: check for CUDA processes via ps
-          checkCudaProcesses(conn, resolve)
-          return
-        }
-        
-        const lines = output.trim().split('\n')
-        for (const line of lines) {
-          const parts = line.split(',').map(p => p.trim())
-          if (parts.length >= 2) {
-            processes.push({
-              pid: parseInt(parts[0]) || 0,
-              user: parts[3] || 'unknown',
-              command: parts[1] || 'unknown',
-              gpuMemory: parts[2] || ''
-            })
-          }
-        }
-        resolve(processes)
+        resolve({ success: true, output })
       })
-    })
-  })
-}
-
-function checkCudaProcesses(conn: any, resolve: (procs: any[]) => void) {
-  // Fallback: look for CUDA-related processes
-  conn.exec('ps aux | grep -E "cuda|torch|tensorflow|python.*train" | grep -v grep | head -50', (err: any, stream: any) => {
-    if (err) {
-      resolve([])
-      return
-    }
-
-    let output = ''
-    stream.on('data', (data: Buffer) => { output += data.toString() })
-    stream.on('close', () => {
-      const processes: any[] = []
-      const lines = output.trim().split('\n')
-      
-      for (const line of lines) {
-        const parts = line.trim().split(/\s+/)
-        if (parts.length >= 11) {
-          const pid = parseInt(parts[1])
-          const user = parts[0]
-          const command = parts.slice(10).join(' ')
-          
-          // Only include if it's likely a GPU process
-          const gpuIndicators = ['cuda', 'torch', 'tensorflow', 'python', 'train', 'inference', 'deep', 'ml']
-          if (gpuIndicators.some(i => command.toLowerCase().includes(i))) {
-            processes.push({
-              pid,
-              user,
-              command: command.split(' ')[0].split('/').pop() || command,
-              gpuMemory: ''
-            })
-          }
-        }
-      }
-      resolve(processes)
     })
   })
 }
