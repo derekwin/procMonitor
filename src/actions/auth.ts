@@ -2,21 +2,22 @@
 
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
-import { setSession } from '@/lib/auth'
+import { hasAdminSession, setSession } from '@/lib/auth'
 
 export async function loginAdmin(username: string, password: string): Promise<{ success: boolean; error?: string }> {
-  const admin = await prisma.admin.findUnique({ where: { username } })
+  const normalizedUsername = username.trim()
+  const admin = await prisma.admin.findUnique({ where: { username: normalizedUsername } })
   
   if (!admin) {
-    return { success: false, error: 'Invalid credentials' }
+    return { success: false, error: '用户名或密码错误' }
   }
   
   const isValid = await bcrypt.compare(password, admin.password)
   if (!isValid) {
-    return { success: false, error: 'Invalid credentials' }
+    return { success: false, error: '用户名或密码错误' }
   }
   
-  await setSession(username)
+  await setSession(admin.username)
   return { success: true }
 }
 
@@ -26,7 +27,5 @@ export async function logoutAdmin() {
 }
 
 export async function checkAdminSession(): Promise<boolean> {
-  const { getSession } = await import('@/lib/auth')
-  const session = await getSession()
-  return !!session
+  return hasAdminSession()
 }

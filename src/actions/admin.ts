@@ -2,17 +2,19 @@
 
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
-import { checkAdminSession } from './auth'
+import { requireAdminSession } from '@/lib/auth'
 
 export async function changeAdminPassword(oldPassword: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
-  // Verify admin session
-  const isAdmin = await checkAdminSession()
-  if (!isAdmin) {
+  let username: string
+
+  try {
+    username = await requireAdminSession()
+  } catch {
     return { success: false, error: '需要管理员权限' }
   }
   
   const admin = await prisma.admin.findUnique({
-    where: { username: 'admin' }
+    where: { username }
   })
   
   if (!admin) {
@@ -26,7 +28,7 @@ export async function changeAdminPassword(oldPassword: string, newPassword: stri
   
   const hashed = await bcrypt.hash(newPassword, 10)
   await prisma.admin.update({
-    where: { username: 'admin' },
+    where: { username },
     data: { password: hashed }
   })
   

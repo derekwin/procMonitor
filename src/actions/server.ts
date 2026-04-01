@@ -1,7 +1,10 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
-import { checkAdminSession } from './auth'
+import { requireAdminSession } from '@/lib/auth'
+import { encryptSecret } from '@/lib/secrets'
+import { connectToServer } from '@/lib/ssh'
+import { migrateLegacyServerPasswords } from '@/lib/server-passwords'
 
 export async function addServer(data: {
   name: string
@@ -10,25 +13,32 @@ export async function addServer(data: {
   username: string
   password: string
 }) {
-  // Verify admin session
-  const isAdmin = await checkAdminSession()
-  if (!isAdmin) {
+  try {
+    await requireAdminSession()
+  } catch {
     return { success: false, error: '需要管理员权限' }
   }
-  
-  // Validate input
-  if (!data.name || !data.host || !data.username || !data.password) {
+
+  const normalizedData = {
+    name: data.name.trim(),
+    host: data.host.trim(),
+    port: data.port,
+    username: data.username.trim(),
+    password: data.password,
+  }
+
+  if (!normalizedData.name || !normalizedData.host || !normalizedData.username || !normalizedData.password) {
     return { success: false, error: '缺少必要参数' }
   }
   
-  // Validate port
-  if (typeof data.port !== 'number' || data.port <= 0 || data.port > 65535) {
+  if (!Number.isInteger(normalizedData.port) || normalizedData.port <= 0 || normalizedData.port > 65535) {
     return { success: false, error: '无效的端口' }
   }
 
   const server = await prisma.server.create({
     data: {
-      ...data,
+      ...normalizedData,
+      password: encryptSecret(normalizedData.password),
     },
   })
   
@@ -41,37 +51,45 @@ export async function testServerConnection(data: {
   username: string
   password: string
 }): Promise<{ success: boolean; error?: string }> {
-  const { Client } = await import('ssh2')
-  
-  return new Promise((resolve) => {
-    const conn = new Client()
-    
-    const timeout = setTimeout(() => {
-      conn.end()
-      resolve({ success: false, error: 'Connection timeout' })
-    }, 10000)
-    
-    conn.on('ready', () => {
-      clearTimeout(timeout)
-      conn.end()
-      resolve({ success: true })
-    })
-    
-    conn.on('error', (err) => {
-      clearTimeout(timeout)
-      resolve({ success: false, error: err.message })
-    })
-    
-    conn.connect({
-      host: data.host,
+  try {
+    await requireAdminSession()
+  } catch {
+    return { success: false, error: '需要管理员权限' }
+  }
+
+  if (!data.host.trim() || !data.username.trim() || !data.password) {
+    return { success: false, error: '缺少必要参数' }
+  }
+
+  if (!Number.isInteger(data.port) || data.port <= 0 || data.port > 65535) {
+    return { success: false, error: '无效的端口' }
+  }
+
+  let conn
+
+  try {
+    conn = await connectToServer({
+      id: 'test-connection',
+      host: data.host.trim(),
       port: data.port,
-      username: data.username,
+      username: data.username.trim(),
       password: data.password,
     })
-  })
+    return { success: true }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    }
+  } finally {
+    conn?.end()
+  }
 }
 
 export async function getServers() {
+  await requireAdminSession()
+  await migrateLegacyServerPasswords()
+
   const servers = await prisma.server.findMany({
     orderBy: { createdAt: 'desc' },
   })
@@ -79,23 +97,12 @@ export async function getServers() {
 }
 
 export async function deleteServer(id: string) {
-  // Verify admin session
-  const isAdmin = await checkAdminSession()
-  if (!isAdmin) {
+  try {
+    await requireAdminSession()
+  } catch {
     return { success: false, error: '需要管理员权限' }
   }
   
   await prisma.server.delete({ where: { id } })
   return { success: true }
-}
-
-export async function getServerPassword(id: string): Promise<string> {
-  // Verify admin session
-  const isAdmin = await checkAdminSession()
-  if (!isAdmin) {
-    return ''
-  }
-  
-  const server = await prisma.server.findUnique({ where: { id } })
-  return server?.password || ''
 }

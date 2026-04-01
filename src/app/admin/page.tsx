@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { startTransition, useEffect, useState } from 'react'
+import Link from 'next/link'
 import { addServer, testServerConnection, getServers, deleteServer } from '@/actions/server'
 import { logoutAdmin } from '@/actions/auth'
 import { getSettings, updateSettings } from '@/actions/settings'
@@ -41,20 +42,41 @@ export default function AdminPage() {
   const [passwordMsg, setPasswordMsg] = useState('')
   const router = useRouter()
 
-  useEffect(() => {
-    loadServers()
-    loadSettings()
-  }, [])
-
-  const loadServers = async () => {
+  async function loadServers() {
     const data = await getServers()
     setServers(data)
   }
 
-  const loadSettings = async () => {
+  async function loadSettings() {
     const data = await getSettings()
     setSettings(data)
   }
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function bootstrap() {
+      const [serversData, settingsData] = await Promise.all([
+        getServers(),
+        getSettings(),
+      ])
+
+      if (cancelled) {
+        return
+      }
+
+      startTransition(() => {
+        setServers(serversData)
+        setSettings(settingsData)
+      })
+    }
+
+    void bootstrap()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const handleTestConnection = async () => {
     setTesting(true)
@@ -70,14 +92,20 @@ export default function AdminPage() {
     if (result.success) {
       setShowAddModal(false)
       setFormData({ name: '', host: '', port: 22, username: '', password: '' })
-      loadServers()
+      await loadServers()
+    } else {
+      alert(result.error || '保存失败')
     }
   }
 
   const handleDeleteServer = async (id: string) => {
     if (confirm('确定要删除这个服务器吗？')) {
-      await deleteServer(id)
-      loadServers()
+      const result = await deleteServer(id)
+      if (!result.success) {
+        alert(result.error || '删除失败')
+        return
+      }
+      await loadServers()
     }
   }
 
@@ -89,11 +117,15 @@ export default function AdminPage() {
   const handleSettingsChange = async (key: string, value: boolean | number) => {
     const newSettings = { ...settings, [key]: value }
     setSettings(newSettings)
-    await updateSettings({ 
+    const result = await updateSettings({ 
       autoScan: newSettings.autoScan, 
       scanInterval: newSettings.scanInterval,
       anonProcessThreshold: newSettings.anonProcessThreshold 
     })
+    if (!result.success) {
+      alert(result.error || '设置保存失败')
+      await loadSettings()
+    }
   }
 
   const handlePasswordChange = async () => {
@@ -132,9 +164,9 @@ export default function AdminPage() {
             <button onClick={() => setShowSettings(true)} className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600">
               设置
             </button>
-            <a href="/admin/alerts" className="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600">
+            <Link href="/admin/alerts" className="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600">
               超时作业提醒
-            </a>
+            </Link>
             <button onClick={handleLogout} className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600">
               退出登录
             </button>
@@ -212,7 +244,7 @@ export default function AdminPage() {
               </div>
               <div className="bg-yellow-50 border border-yellow-200 rounded-md p-2 text-xs text-yellow-800">
                 <p className="font-medium">⚠️ 需配置 sudo 免密</p>
-                <p className="mt-1">在服务器执行: <code className="bg-white px-1 rounded">echo "{formData.username || '用户名'} ALL=(ALL) NOPASSWD: /bin/kill" | sudo tee /etc/sudoers.d/kill</code></p>
+                <p className="mt-1">在服务器执行: <code className="bg-white px-1 rounded">echo &quot;{formData.username || '用户名'} ALL=(ALL) NOPASSWD: /bin/kill&quot; | sudo tee /etc/sudoers.d/kill</code></p>
               </div>
               <button onClick={handleTestConnection} disabled={testing || !formData.host || !formData.username || !formData.password} className="w-full px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 disabled:opacity-50">
                 {testing ? '测试中...' : '测试连接'}

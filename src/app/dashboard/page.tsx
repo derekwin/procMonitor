@@ -1,10 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getProcesses } from '@/actions/dashboard'
+import { getProcesses, killServerProcess, runMonitorScan } from '@/actions/monitor'
 import { getSettings } from '@/actions/settings'
 import { checkAdminSession } from '@/actions/auth'
-import { killServerProcess } from '@/actions/monitor'
 import Link from 'next/link'
 
 interface Process {
@@ -32,53 +31,73 @@ export default function DashboardPage() {
   const [killing, setKilling] = useState<string | null>(null)
   const [settings, setSettings] = useState({ anonProcessThreshold: 360 })
 
+  async function loadProcessesWithoutScan() {
+    const data = await getProcesses()
+    setProcesses(data)
+    setLoading(false)
+  }
+
   useEffect(() => {
-    checkAdminSession().then(setIsAdmin)
-    loadProcessesWithoutScan()
-    loadSettingsAndStartInterval()
+    let cancelled = false
+    let timer: ReturnType<typeof setInterval> | undefined
+
+    async function initialize() {
+      const [admin, settingsData, processData] = await Promise.all([
+        checkAdminSession(),
+        getSettings(),
+        getProcesses(),
+      ])
+
+      if (cancelled) {
+        return
+      }
+
+      setIsAdmin(admin)
+      setSettings({ anonProcessThreshold: settingsData.anonProcessThreshold || 360 })
+      setProcesses(processData)
+      setLoading(false)
+
+      if (settingsData.autoScan) {
+        timer = setInterval(() => {
+          void loadProcessesWithoutScan()
+        }, (settingsData.scanInterval || 60) * 1000)
+      }
+    }
+
+    void initialize()
+
+    return () => {
+      cancelled = true
+      if (timer) {
+        clearInterval(timer)
+      }
+    }
   }, [])
 
-  const loadSettingsAndStartInterval = async () => {
-    const data = await getSettings()
-    setSettings({ anonProcessThreshold: data.anonProcessThreshold || 360 })
-    if (data.autoScan) {
-      const interval = (data.scanInterval || 60) * 1000
-      const timer = setInterval(() => {
-        loadProcessesWithScan()
-      }, interval)
-      return () => clearInterval(timer)
-    }
-  }
-
-  const loadProcessesWithoutScan = async () => {
-    const data = await getProcesses()
-    setProcesses(data)
-    setLoading(false)
-  }
-
-  const loadProcessesWithScan = async () => {
-    try {
-      await fetch('/api/cron/scan', { method: 'POST' })
-    } catch (e) {}
-    const data = await getProcesses()
-    setProcesses(data)
-    setLoading(false)
-  }
-
-  const handleManualScan = async () => {
+  async function handleManualRefresh() {
     setScanning(true)
-    await loadProcessesWithScan()
+    await loadProcessesWithoutScan()
+    setScanning(false)
+  }
+
+  async function handleManualScan() {
+    setScanning(true)
+    const result = await runMonitorScan()
+    if (!result.success) {
+      alert('扫描已执行，但部分服务器失败，请查看管理员后台排查连接或命令权限。')
+    }
+    await loadProcessesWithoutScan()
     setScanning(false)
   }
 
   const handleKill = async (process: Process) => {
     if (!confirm(`确定要终止进程 ${process.pid} (${process.programName}) 吗？`)) return
     setKilling(process.id)
-    const result = await killServerProcess(process.id, process.server as any, process.pid)
+    const result = await killServerProcess(process.id)
     setKilling(null)
     if (result.success) {
       alert('进程已终止')
-      loadProcessesWithoutScan()
+      await loadProcessesWithoutScan()
     } else {
       alert(`终止失败: ${result.error}`)
     }
@@ -159,14 +178,23 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold text-gray-900">作业看板</h1>
           <div className="flex gap-4">
             <button
-              onClick={handleManualScan}
+              onClick={handleManualRefresh}
               disabled={scanning}
               className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 disabled:opacity-50"
             >
-              {scanning ? '扫描中...' : '手动扫描'}
+              {scanning ? '刷新中...' : '刷新列表'}
             </button>
+            {isAdmin && (
+              <button
+                onClick={handleManualScan}
+                disabled={scanning}
+                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50"
+              >
+                {scanning ? '扫描中...' : '立即扫描'}
+              </button>
+            )}
             <Link href="/" className="px-4 py-2 text-blue-500 hover:underline">返回首页</Link>
-            {overTimeCount > 0 && (
+            {isAdmin && overTimeCount > 0 && (
               <Link href="/admin/alerts" className="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600">
                 有{overTimeCount}个超时作业
               </Link>
@@ -331,7 +359,7 @@ export default function DashboardPage() {
                 })}
                 {filteredProcesses.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-6 py-4 text-center text-gray-500">
+                    <td colSpan={9} className="px-6 py-4 text-center text-gray-500">
                       暂无作业数据
                     </td>
                   </tr>

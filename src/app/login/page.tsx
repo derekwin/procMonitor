@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { loginAdmin, checkAdminSession } from '@/actions/auth'
 import { useRouter } from 'next/navigation'
 
@@ -19,7 +20,7 @@ export default function AdminLogin() {
         setLoading(false)
       }
     })
-  }, [])
+  }, [router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -71,7 +72,7 @@ export default function AdminLogin() {
           </button>
         </form>
         <div className="mt-4 text-center">
-          <a href="/" className="text-sm text-blue-500 hover:underline">返回首页</a>
+          <Link href="/" className="text-sm text-blue-500 hover:underline">返回首页</Link>
         </div>
       </div>
     </div>

@@ -1,51 +1,36 @@
-import { prisma } from '@/lib/prisma'
-import { getSettings } from './settings'
+'use server'
 
-export async function scanAllServers() {
-  return []
-}
-
-export async function killServerProcess(processId: string, serverId: string, pid: number) {
-  const response = await fetch(`/api/cron/scan?processId=${processId}&serverId=${serverId}&pid=${pid}`, {
-    method: 'DELETE',
-  })
-  const result = await response.json()
-  return result
-}
+import { requireAdminSession } from '@/lib/auth'
+import {
+  listOvertimeProcesses,
+  listProcesses,
+  scanServers,
+  terminateTrackedProcess,
+} from '@/lib/monitor'
 
 export async function getProcesses() {
-  const processes = await prisma.process.findMany({
-    include: {
-      server: {
-        select: { id: true, name: true, host: true },
-      },
-    },
-    orderBy: { actualStartTime: 'desc' },
-  })
-  return processes
+  return listProcesses()
 }
 
 export async function getOverTimeProcesses() {
-  const now = new Date()
-  const settings = await getSettings()
-  const anonThresholdHours = (settings.anonProcessThreshold || 360) / 60
-  
-  const processes = await prisma.process.findMany({
-    include: {
-      server: {
-        select: { id: true, name: true, host: true },
-      },
-    },
-  })
+  return listOvertimeProcesses()
+}
 
-  return processes.filter(p => {
-    const hours = (now.getTime() - new Date(p.actualStartTime).getTime()) / 1000 / 60 / 60
-    if (p.isAnonymous) {
-      return hours > anonThresholdHours
+export async function runMonitorScan() {
+  await requireAdminSession()
+  return scanServers()
+}
+
+export async function killServerProcess(processId: string) {
+  await requireAdminSession()
+
+  try {
+    await terminateTrackedProcess(processId)
+    return { success: true }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
     }
-    if (p.estimatedDuration) {
-      return hours > p.estimatedDuration / 60
-    }
-    return false
-  })
+  }
 }

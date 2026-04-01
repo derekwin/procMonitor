@@ -1,10 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getOverTimeProcesses, refreshProcesses } from '@/actions/alerts'
+import { getOverTimeProcesses, killServerProcess, runMonitorScan } from '@/actions/monitor'
 import { getSettings } from '@/actions/settings'
-import { killServerProcess } from '@/actions/monitor'
-import { checkAdminSession } from '@/actions/auth'
 import Link from 'next/link'
 
 interface Process {
@@ -28,26 +26,9 @@ export default function AlertsPage() {
   const [loading, setLoading] = useState(true)
   const [killing, setKilling] = useState<string | null>(null)
   const [scanning, setScanning] = useState(false)
-  const [isAdmin, setIsAdmin] = useState(false)
+  const [anonThreshold, setAnonThreshold] = useState(360)
 
-  useEffect(() => {
-    checkAdminSession().then(setIsAdmin)
-    loadProcessesWithoutScan()
-  }, [])
-
-  useEffect(() => {
-    getSettings().then(settings => {
-      if (settings.autoScan) {
-        const interval = (settings.scanInterval || 60) * 1000
-        const timer = setInterval(() => {
-          loadProcessesWithScan()
-        }, interval)
-        return () => clearInterval(timer)
-      }
-    })
-  }, [])
-
-  const loadProcessesWithoutScan = async () => {
+  async function loadProcessesWithoutScan() {
     try {
       const data = await getOverTimeProcesses()
       setProcesses(data)
@@ -57,17 +38,49 @@ export default function AlertsPage() {
     setLoading(false)
   }
 
-  const loadProcessesWithScan = async () => {
+  async function loadProcessesWithScan() {
     setLoading(true)
-    try {
-      await fetch('/api/cron/scan', { method: 'POST' })
-    } catch (e) {
-      console.error('Scan failed:', e)
+    const result = await runMonitorScan()
+    if (!result.success) {
+      console.error('Scan finished with errors:', result.results)
     }
-    const data = await getOverTimeProcesses()
-    setProcesses(data)
-    setLoading(false)
+    await loadProcessesWithoutScan()
   }
+
+  useEffect(() => {
+    let cancelled = false
+    let timer: ReturnType<typeof setInterval> | undefined
+
+    async function initialize() {
+      const [settings, data] = await Promise.all([
+        getSettings(),
+        getOverTimeProcesses(),
+      ])
+
+      if (cancelled) {
+        return
+      }
+
+      setAnonThreshold(settings.anonProcessThreshold || 360)
+      setProcesses(data)
+      setLoading(false)
+
+      if (settings.autoScan) {
+        timer = setInterval(() => {
+          void loadProcessesWithoutScan()
+        }, (settings.scanInterval || 60) * 1000)
+      }
+    }
+
+    void initialize()
+
+    return () => {
+      cancelled = true
+      if (timer) {
+        clearInterval(timer)
+      }
+    }
+  }, [])
 
   const handleManualScan = async () => {
     setScanning(true)
@@ -81,12 +94,12 @@ export default function AlertsPage() {
     }
 
     setKilling(process.id)
-    const result = await killServerProcess(process.id, process.server.id, process.pid)
+    const result = await killServerProcess(process.id)
     setKilling(null)
 
     if (result.success) {
       alert('进程已被终止')
-      loadProcessesWithoutScan()
+      await loadProcessesWithoutScan()
     } else {
       alert(`终止失败: ${result.error}`)
     }
@@ -97,11 +110,22 @@ export default function AlertsPage() {
       return
     }
 
+    const failedProcesses: string[] = []
+
     for (const process of processes) {
-      await killServerProcess(process.id, process.server.id, process.pid)
+      const result = await killServerProcess(process.id)
+      if (!result.success) {
+        failedProcesses.push(`${process.server.name}#${process.pid}`)
+      }
     }
-    alert('所有超时进程已终止')
-    loadProcessesWithoutScan()
+
+    if (failedProcesses.length > 0) {
+      alert(`以下进程终止失败: ${failedProcesses.join(', ')}`)
+    } else {
+      alert('所有超时进程已终止')
+    }
+
+    await loadProcessesWithoutScan()
   }
 
   const getRuntime = (startTime: Date) => {
@@ -131,7 +155,7 @@ export default function AlertsPage() {
         <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg mb-6">
           <p className="text-yellow-800">
             以下进程已超过运行时间限制：
-            <strong>匿名进程 &gt; 6小时</strong> 或 <strong>已注册进程 &gt; 预估时间</strong>
+            <strong>匿名进程 &gt; {Math.floor(anonThreshold / 60)}小时</strong> 或 <strong>已注册进程 &gt; 预估时间</strong>
           </p>
           {processes.length > 0 && (
             <button
@@ -180,17 +204,13 @@ export default function AlertsPage() {
                       {getRuntime(process.actualStartTime)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {isAdmin ? (
-                        <button
-                          onClick={() => handleKill(process)}
-                          disabled={killing === process.id}
-                          className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50 text-sm"
-                        >
-                          {killing === process.id ? '终止中...' : 'Kill'}
-                        </button>
-                      ) : (
-                        <span className="text-gray-400 text-sm">无权限</span>
-                      )}
+                      <button
+                        onClick={() => handleKill(process)}
+                        disabled={killing === process.id}
+                        className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50 text-sm"
+                      >
+                        {killing === process.id ? '终止中...' : 'Kill'}
+                      </button>
                     </td>
                   </tr>
                 ))}

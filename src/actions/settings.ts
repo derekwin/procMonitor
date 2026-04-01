@@ -1,7 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
-import { checkAdminSession } from './auth'
+import { requireAdminSession } from '@/lib/auth'
 
 export async function getSettings() {
   const settings = await prisma.settings.findUnique({
@@ -25,9 +25,9 @@ export async function updateSettings(data: {
   scanInterval: number
   anonProcessThreshold?: number
 }) {
-  // Verify admin session
-  const isAdmin = await checkAdminSession()
-  if (!isAdmin) {
+  try {
+    await requireAdminSession()
+  } catch {
     return { success: false, error: '需要管理员权限' }
   }
   
