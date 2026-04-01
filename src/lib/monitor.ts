@@ -28,7 +28,6 @@ function isPastOvertimeThreshold(
     isAnonymous: boolean
     estimatedDuration: number | null
   },
-  gracePeriodMinutes: number,
 ) {
   if (process.isAnonymous) {
     return true
@@ -214,14 +213,9 @@ export async function listProcesses(): Promise<ProcessWithServer[]> {
 }
 
 export async function listOvertimeProcesses(): Promise<ProcessWithServer[]> {
-  const [settings, processes] = await Promise.all([
-    prisma.settings.findUnique({ where: { id: 'default' } }),
-    listProcesses(),
-  ])
+  const processes = await listProcesses()
 
-  const gracePeriodMinutes = getGracePeriodMinutes(settings)
-
-  return processes.filter((process) => isPastOvertimeThreshold(process, gracePeriodMinutes))
+  return processes.filter((process) => isPastOvertimeThreshold(process))
 }
 
 export async function terminateTrackedProcess(processId: string) {

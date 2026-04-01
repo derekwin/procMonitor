@@ -29,7 +29,6 @@ export default function DashboardPage() {
   const [scanning, setScanning] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const [killing, setKilling] = useState<string | null>(null)
-  const [settings, setSettings] = useState({ anonProcessThreshold: 120 })
 
   async function loadProcessesWithoutScan() {
     const data = await getProcesses()
@@ -53,7 +52,6 @@ export default function DashboardPage() {
       }
 
       setIsAdmin(admin)
-      setSettings({ anonProcessThreshold: settingsData.anonProcessThreshold || 120 })
       setProcesses(processData)
       setLoading(false)
 
