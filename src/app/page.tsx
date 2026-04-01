@@ -5,34 +5,44 @@ export default function Home() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto py-6 px-4 flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-900">进程监控系统</h1>
-          <Link 
-            href="/login" 
-            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-          >
-            管理员登录
-          </Link>
+          <h1 className="text-3xl font-bold text-gray-900">作业协调申请系统</h1>
+          <div className="flex gap-4">
+            <Link 
+              href="/login" 
+              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+            >
+              管理员登录
+            </Link>
+          </div>
         </div>
       </header>
       <main className="max-w-7xl mx-auto py-6 px-4">
+        <div className="text-center mb-8">
+          <p className="text-xl text-gray-600">
+            分布式服务器作业进程管理与协调平台
+          </p>
+        </div>
+        
         <div className="grid md:grid-cols-2 gap-6">
           <div className="bg-white p-6 rounded-lg shadow">
-            <h2 className="text-xl font-semibold mb-4">注册我的进程</h2>
+            <h2 className="text-xl font-semibold mb-4">申请作业</h2>
             <p className="text-gray-600 mb-4">
-              如果你是某个服务器上进程的使用者，可以在此注册你的进程，
-              说明程序用途和预估运行时间。
+              如果您需要长时间运行作业（如模型训练、数据处理等），
+              请在此注册您的作业，说明用途和预估运行时间。
+              系统会自动跟踪作业运行状态。
             </p>
             <Link 
               href="/register" 
               className="inline-block px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
             >
-              前往注册
+              申请作业
             </Link>
           </div>
           <div className="bg-white p-6 rounded-lg shadow">
-            <h2 className="text-xl font-semibold mb-4">进程看板</h2>
+            <h2 className="text-xl font-semibold mb-4">作业看板</h2>
             <p className="text-gray-600 mb-4">
-              查看所有受管服务器上的用户启动进程，包括已注册和匿名的进程。
+              查看所有服务器上的作业运行状态，包括已申请和未登记的作业。
+              超过预估时间的作业将会被标记提醒。
             </p>
             <Link 
               href="/dashboard" 
@@ -41,6 +51,16 @@ export default function Home() {
               查看看板
             </Link>
           </div>
+        </div>
+
+        <div className="mt-8 bg-blue-50 p-6 rounded-lg">
+          <h3 className="text-lg font-semibold mb-2">使用说明</h3>
+          <ul className="list-disc list-inside text-gray-600 space-y-1">
+            <li>普通用户：通过"申请作业"提交您的作业信息</li>
+            <li>管理员：通过"管理员登录"管理服务器和监控作业</li>
+            <li>系统每分钟自动扫描所有服务器上的作业运行状态</li>
+            <li>匿名作业超过6小时，或超过预估时间的作业将被标记</li>
+          </ul>
         </div>
       </main>
     </div>

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { addServer, testServerConnection, getServers, deleteServer } from '@/actions/server'
 import { logoutAdmin } from '@/actions/auth'
+import { getSettings, updateSettings } from '@/actions/settings'
 import { useRouter } from 'next/navigation'
 
 interface Server {
@@ -13,9 +14,16 @@ interface Server {
   username: string
 }
 
+interface Settings {
+  autoScan: boolean
+  scanInterval: number
+}
+
 export default function AdminPage() {
   const [servers, setServers] = useState<Server[]>([])
+  const [settings, setSettings] = useState<Settings>({ autoScan: true, scanInterval: 60 })
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
     host: '',
@@ -29,6 +37,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     loadServers()
+    loadSettings()
   }, [])
 
   const loadServers = async () => {
@@ -36,11 +45,16 @@ export default function AdminPage() {
     setServers(data)
   }
 
+  const loadSettings = async () => {
+    const data = await getSettings()
+    setSettings(data)
+  }
+
   const handleTestConnection = async () => {
     setTesting(true)
     const result = await testServerConnection(formData)
     setTesting(false)
-    alert(result.success ? '连接成功！' : `连接失败: ${result.error}`)
+    alert(result.success ? '连接成功！' : '连接失败: ' + result.error)
   }
 
   const handleAddServer = async () => {
@@ -66,15 +80,21 @@ export default function AdminPage() {
     router.push('/')
   }
 
+  const handleSettingsChange = async (key: string, value: boolean | number) => {
+    const newSettings = { ...settings, [key]: value }
+    setSettings(newSettings)
+    await updateSettings({ autoScan: newSettings.autoScan, scanInterval: newSettings.scanInterval })
+  }
+
   return (
     <div className="min-h-screen bg-gray-100">
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto py-6 px-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold">管理员后台</h1>
           <div className="flex gap-4">
-            <a href="/admin" className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
-              服务器管理
-            </a>
+            <button onClick={() => setShowSettings(true)} className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600">
+              设置
+            </button>
             <a href="/admin/alerts" className="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600">
               超时进程提醒
             </a>
@@ -87,10 +107,7 @@ export default function AdminPage() {
       <main className="max-w-7xl mx-auto py-6 px-4">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-semibold">服务器列表</h2>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
-          >
+          <button onClick={() => setShowAddModal(true)} className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600">
             添加服务器
           </button>
         </div>
@@ -113,10 +130,7 @@ export default function AdminPage() {
                   <td className="px-6 py-4 whitespace-nowrap">{server.port}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{server.username}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <button
-                      onClick={() => handleDeleteServer(server.id)}
-                      className="text-red-500 hover:text-red-700"
-                    >
+                    <button onClick={() => handleDeleteServer(server.id)} className="text-red-500 hover:text-red-700">
                       删除
                     </button>
                   </td>
@@ -141,74 +155,59 @@ export default function AdminPage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1">名称</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-md"
-                  placeholder="服务器别名"
-                />
+                <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full px-3 py-2 border rounded-md" placeholder="服务器别名" />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">主机地址</label>
-                <input
-                  type="text"
-                  value={formData.host}
-                  onChange={(e) => setFormData({ ...formData, host: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-md"
-                  placeholder="192.168.1.100"
-                />
+                <input type="text" value={formData.host} onChange={(e) => setFormData({ ...formData, host: e.target.value })} className="w-full px-3 py-2 border rounded-md" placeholder="192.168.1.100" />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">端口</label>
-                <input
-                  type="number"
-                  value={formData.port}
-                  onChange={(e) => setFormData({ ...formData, port: parseInt(e.target.value) })}
-                  className="w-full px-3 py-2 border rounded-md"
-                />
+                <input type="number" value={formData.port} onChange={(e) => setFormData({ ...formData, port: parseInt(e.target.value) })} className="w-full px-3 py-2 border rounded-md" />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">用户名</label>
-                <input
-                  type="text"
-                  value={formData.username}
-                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-md"
-                />
+                <input type="text" value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} className="w-full px-3 py-2 border rounded-md" />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">密码</label>
-                <input
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-md"
-                />
+                <input type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} className="w-full px-3 py-2 border rounded-md" />
               </div>
-              <button
-                onClick={handleTestConnection}
-                disabled={testing || !formData.host || !formData.username || !formData.password}
-                className="w-full px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 disabled:opacity-50"
-              >
+              <button onClick={handleTestConnection} disabled={testing || !formData.host || !formData.username || !formData.password} className="w-full px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 disabled:opacity-50">
                 {testing ? '测试中...' : '测试连接'}
               </button>
             </div>
             <div className="flex gap-2 mt-4">
-              <button
-                onClick={handleAddServer}
-                disabled={saving}
-                className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50"
-              >
+              <button onClick={handleAddServer} disabled={saving} className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50">
                 {saving ? '保存中...' : '保存'}
               </button>
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
-              >
+              <button onClick={() => setShowAddModal(false)} className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">
                 取消
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showSettings && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-lg w-[400px]">
+            <h3 className="text-xl font-semibold mb-4">系统设置</h3>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">自动扫描</label>
+                <button onClick={() => handleSettingsChange('autoScan', !settings.autoScan)} className={'relative inline-flex h-6 w-11 items-center rounded-full ' + (settings.autoScan ? 'bg-blue-500' : 'bg-gray-300')}>
+                  <span className={'inline-block h-4 w-4 transform rounded-full bg-white ' + (settings.autoScan ? 'translate-x-6' : 'translate-x-1')} />
+                </button>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">扫描间隔（秒）</label>
+                <input type="number" value={settings.scanInterval} onChange={(e) => handleSettingsChange('scanInterval', parseInt(e.target.value))} className="w-full px-3 py-2 border rounded-md" min={10} />
+              </div>
+            </div>
+            <button onClick={() => setShowSettings(false)} className="w-full mt-4 px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600">
+              关闭
+            </button>
           </div>
         </div>
       )}

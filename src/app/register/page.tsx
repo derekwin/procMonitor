@@ -43,7 +43,7 @@ export default function RegisterPage() {
 
     setSubmitting(false)
     if (result.success) {
-      setMessage('注册成功！')
+      setMessage('作业申请提交成功！')
       setFormData({
         serverId: formData.serverId,
         pid: '',
@@ -53,7 +53,7 @@ export default function RegisterPage() {
         estimatedDuration: '',
       })
     } else {
-      setMessage(result.error || '注册失败')
+      setMessage(result.error || '提交失败')
     }
   }
 
@@ -61,18 +61,18 @@ export default function RegisterPage() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto py-6 px-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">注册我的进程</h1>
+          <h1 className="text-2xl font-bold text-gray-900">申请作业</h1>
           <div className="flex gap-4">
             <Link href="/" className="px-4 py-2 text-blue-500 hover:underline">返回首页</Link>
-            <Link href="/dashboard" className="px-4 py-2 text-blue-500 hover:underline">查看看板</Link>
+            <Link href="/dashboard" className="px-4 py-2 text-blue-500 hover:underline">作业看板</Link>
           </div>
         </div>
       </header>
       <main className="max-w-2xl mx-auto py-6 px-4">
         <div className="bg-white p-6 rounded-lg shadow">
           <p className="text-gray-600 mb-6">
-            如果你是某个服务器上进程的使用者，可以在此注册你的进程。
-            注册后系统会跟踪你的进程运行时间，并在超过预估时间时提醒管理员。
+            提交您的长时作业申请，说明作业用途和预估运行时间。
+            系统会自动跟踪作业运行状态，超过预估时间将会提醒管理员。
           </p>
           
           {message && (
@@ -101,7 +101,7 @@ export default function RegisterPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">PID <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-medium mb-1">作业PID <span className="text-red-500">*</span></label>
                 <input
                   type="number"
                   value={formData.pid}
@@ -112,26 +112,26 @@ export default function RegisterPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">用户名 <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-medium mb-1">作业用户 <span className="text-red-500">*</span></label>
                 <input
                   type="text"
                   value={formData.username}
                   onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                   className="w-full px-3 py-2 border rounded-md"
-                  placeholder="运行该进程的用户"
+                  placeholder="运行该作业的用户"
                   required
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">程序名称 <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-medium mb-1">作业程序 <span className="text-red-500">*</span></label>
               <input
                 type="text"
                 value={formData.programName}
                 onChange={(e) => setFormData({ ...formData, programName: e.target.value })}
                 className="w-full px-3 py-2 border rounded-md"
-                placeholder="如: python test.py"
+                placeholder="如: python train.py"
                 required
               />
             </div>
@@ -145,17 +145,17 @@ export default function RegisterPage() {
                 className="w-full px-3 py-2 border rounded-md"
                 placeholder="预计运行多少分钟"
               />
-              <p className="text-xs text-gray-500 mt-1">超过此时间会提醒管理员</p>
+              <p className="text-xs text-gray-500 mt-1">超过此时间会提醒管理员确认是否结束作业</p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">程序说明</label>
+              <label className="block text-sm font-medium mb-1">作业说明</label>
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 className="w-full px-3 py-2 border rounded-md"
                 rows={3}
-                placeholder="简单描述这个程序是做什么的"
+                placeholder="简单描述这个作业是做什么的"
               />
             </div>
 
@@ -164,7 +164,7 @@ export default function RegisterPage() {
               disabled={submitting}
               className="w-full py-2 bg-green-500 text-white rounded-md hover:bg-green-600 disabled:opacity-50"
             >
-              {submitting ? '提交中...' : '提交注册'}
+              {submitting ? '提交中...' : '提交申请'}
             </button>
           </form>
         </div>

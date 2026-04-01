@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { getProcesses } from '@/actions/dashboard'
+import { getSettings } from '@/actions/settings'
 import Link from 'next/link'
 
 interface Process {
@@ -26,10 +27,17 @@ export default function DashboardPage() {
   const [scanning, setScanning] = useState(false)
 
   useEffect(() => {
-    loadProcesses()
-    const interval = setInterval(loadProcesses, 60000) // Refresh every minute
-    return () => clearInterval(interval)
+    loadSettingsAndProcesses()
   }, [])
+
+  const loadSettingsAndProcesses = async () => {
+    const settings = await getSettings()
+    const interval = (settings.scanInterval || 60) * 1000
+    
+    loadProcesses()
+    const timer = setInterval(loadProcesses, interval)
+    return () => clearInterval(timer)
+  }
 
   const handleManualScan = async () => {
     setScanning(true)
@@ -38,7 +46,6 @@ export default function DashboardPage() {
   }
 
   const loadProcesses = async () => {
-    // Trigger a scan first
     try {
       await fetch('/api/cron/scan', { method: 'POST' })
     } catch (e) {}

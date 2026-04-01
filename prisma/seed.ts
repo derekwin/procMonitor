@@ -6,7 +6,7 @@ const prisma = new PrismaClient()
 async function main() {
   const password = await bcrypt.hash('admin123', 10)
   
-  const admin = await prisma.admin.upsert({
+  await prisma.admin.upsert({
     where: { username: 'admin' },
     update: {},
     create: {
@@ -15,7 +15,17 @@ async function main() {
     },
   })
 
-  console.log('Default admin created:', admin.username)
+  await prisma.settings.upsert({
+    where: { id: 'default' },
+    update: {},
+    create: {
+      id: 'default',
+      autoScan: true,
+      scanInterval: 60,
+    },
+  })
+
+  console.log('Default admin and settings created')
 }
 
 main()
