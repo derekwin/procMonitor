@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { getProcesses, killServerProcess, runMonitorScan } from '@/actions/monitor'
 import { getSettings } from '@/actions/settings'
 import { checkAdminSession } from '@/actions/auth'
@@ -36,6 +36,25 @@ export default function DashboardPage() {
     setLoading(false)
   }
 
+  async function scanAndReload(options?: { silent?: boolean }) {
+    if (!options?.silent) {
+      setScanning(true)
+    }
+
+    try {
+      const result = await runMonitorScan()
+      if (!result.success && !options?.silent) {
+        alert('扫描已执行，但部分服务器失败，请稍后查看是否有服务器连接或权限异常。')
+      }
+
+      await loadProcessesWithoutScan()
+    } finally {
+      if (!options?.silent) {
+        setScanning(false)
+      }
+    }
+  }
+
   useEffect(() => {
     let cancelled = false
     let timer: ReturnType<typeof setInterval> | undefined
@@ -57,7 +76,13 @@ export default function DashboardPage() {
 
       if (settingsData.autoScan) {
         timer = setInterval(() => {
-          void loadProcessesWithoutScan()
+          void runMonitorScan()
+            .then(result => {
+              if (!result.success) {
+                console.error('自动扫描部分失败，请检查服务器连接或权限配置。')
+              }
+            })
+            .then(() => loadProcessesWithoutScan())
         }, (settingsData.scanInterval || 60) * 1000)
       }
     }
@@ -72,20 +97,8 @@ export default function DashboardPage() {
     }
   }, [])
 
-  async function handleManualRefresh() {
-    setScanning(true)
-    await loadProcessesWithoutScan()
-    setScanning(false)
-  }
-
   async function handleManualScan() {
-    setScanning(true)
-    const result = await runMonitorScan()
-    if (!result.success) {
-      alert('扫描已执行，但部分服务器失败，请查看管理员后台排查连接或命令权限。')
-    }
-    await loadProcessesWithoutScan()
-    setScanning(false)
+    await scanAndReload()
   }
 
   const handleKill = async (process: Process) => {
@@ -176,21 +189,12 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold text-gray-900">作业看板</h1>
           <div className="flex gap-4">
             <button
-              onClick={handleManualRefresh}
+              onClick={handleManualScan}
               disabled={scanning}
               className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 disabled:opacity-50"
             >
-              {scanning ? '刷新中...' : '刷新列表'}
+              {scanning ? '扫描中...' : '手动扫描'}
             </button>
-            {isAdmin && (
-              <button
-                onClick={handleManualScan}
-                disabled={scanning}
-                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50"
-              >
-                {scanning ? '扫描中...' : '立即扫描'}
-              </button>
-            )}
             <Link href="/" className="px-4 py-2 text-blue-500 hover:underline">返回首页</Link>
             {isAdmin && overTimeCount > 0 && (
               <Link href="/admin/alerts" className="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600">

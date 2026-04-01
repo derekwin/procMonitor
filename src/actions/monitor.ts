@@ -1,6 +1,5 @@
 'use server'
 
-import { requireAdminSession } from '@/lib/auth'
 import {
   listOvertimeProcesses,
   listProcesses,
@@ -17,11 +16,11 @@ export async function getOverTimeProcesses() {
 }
 
 export async function runMonitorScan() {
-  await requireAdminSession()
   return scanServers()
 }
 
 export async function killServerProcess(processId: string) {
+  const { requireAdminSession } = await import('@/lib/auth')
   await requireAdminSession()
 
   try {
