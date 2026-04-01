@@ -300,8 +300,8 @@ export default function DashboardPage() {
         {loading ? (
           <div className="text-center py-8 text-gray-500">加载中...</div>
         ) : (
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <table className="min-w-full">
+          <div className="bg-white rounded-lg shadow overflow-x-auto">
+            <table className="min-w-full table-auto">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">服务器</th>
@@ -328,8 +328,8 @@ export default function DashboardPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap font-mono text-sm">{process.pid}</td>
                       <td className="px-6 py-4 whitespace-nowrap">{process.username}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">{process.programName}</td>
-                      <td className="px-6 py-4">{process.description || '-'}</td>
+                      <td className="px-6 py-4 max-w-[320px] break-all">{process.programName}</td>
+                      <td className="px-6 py-4 max-w-[240px] break-words">{process.description || '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {process.estimatedDuration ? `${process.estimatedDuration}分钟` : '-'}
                       </td>
