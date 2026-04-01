@@ -42,3 +42,9 @@ model Admin {
   password  String
   createdAt DateTime @default(now())
 }
+
+model Settings {
+  id           String  @id @default("default")
+  autoScan     Boolean @default(true)
+  scanInterval Int     @default(60) // in seconds
+}

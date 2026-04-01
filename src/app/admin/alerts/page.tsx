@@ -25,13 +25,26 @@ export default function AlertsPage() {
   const [processes, setProcesses] = useState<Process[]>([])
   const [loading, setLoading] = useState(true)
   const [killing, setKilling] = useState<string | null>(null)
+  const [scanning, setScanning] = useState(false)
 
   useEffect(() => {
     loadProcesses()
+    const interval = setInterval(loadProcesses, 60000) // Auto refresh every minute
+    return () => clearInterval(interval)
   }, [])
+
+  const handleManualScan = async () => {
+    setScanning(true)
+    await loadProcesses()
+    setScanning(false)
+  }
 
   const loadProcesses = async () => {
     setLoading(true)
+    // Trigger scan first
+    try {
+      await fetch('/api/cron/scan', { method: 'POST' })
+    } catch (e) {}
     const data = await getOverTimeProcesses()
     setProcesses(data)
     setLoading(false)
@@ -83,8 +96,8 @@ export default function AlertsPage() {
           <h1 className="text-2xl font-bold text-gray-900">超时进程提醒</h1>
           <div className="flex gap-4">
             <Link href="/admin" className="px-4 py-2 text-blue-500 hover:underline">返回管理</Link>
-            <button onClick={loadProcesses} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
-              刷新
+            <button onClick={handleManualScan} disabled={scanning} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50">
+              {scanning ? '扫描中...' : '手动扫描'}
             </button>
           </div>
         </div>

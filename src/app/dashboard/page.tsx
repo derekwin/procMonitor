@@ -23,6 +23,7 @@ export default function DashboardPage() {
   const [processes, setProcesses] = useState<Process[]>([])
   const [filter, setFilter] = useState<'all' | 'registered' | 'anonymous'>('all')
   const [loading, setLoading] = useState(true)
+  const [scanning, setScanning] = useState(false)
 
   useEffect(() => {
     loadProcesses()
@@ -30,7 +31,17 @@ export default function DashboardPage() {
     return () => clearInterval(interval)
   }, [])
 
+  const handleManualScan = async () => {
+    setScanning(true)
+    await loadProcesses()
+    setScanning(false)
+  }
+
   const loadProcesses = async () => {
+    // Trigger a scan first
+    try {
+      await fetch('/api/cron/scan', { method: 'POST' })
+    } catch (e) {}
     const data = await getProcesses()
     setProcesses(data)
     setLoading(false)
@@ -75,6 +86,13 @@ export default function DashboardPage() {
         <div className="max-w-7xl mx-auto py-6 px-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-gray-900">进程看板</h1>
           <div className="flex gap-4">
+            <button
+              onClick={handleManualScan}
+              disabled={scanning}
+              className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 disabled:opacity-50"
+            >
+              {scanning ? '扫描中...' : '手动扫描'}
+            </button>
             <Link href="/" className="px-4 py-2 text-blue-500 hover:underline">返回首页</Link>
             {overTimeCount > 0 && (
               <Link href="/admin/alerts" className="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600">
