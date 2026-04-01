@@ -50,7 +50,7 @@ export default function RegisterPage() {
 
     setSubmitting(false)
     if (result.success) {
-      setMessage('作业申请提交成功！')
+      setMessage(result.message || '作业申请提交成功！')
       setFormData({
         serverId: formData.serverId,
         pid: '',

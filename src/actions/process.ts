@@ -19,10 +19,24 @@ export async function registerProcess(data: {
     },
   })
 
-  if (existing) {
-    return { success: false, error: '该进程已注册' }
-  }
+    if (existing) {
+      if (!existing.isAnonymous) {
+        return { success: false, error: '该进程已注册' }
+      }
+      const updated = await prisma.process.update({
+        where: { id: existing.id },
+        data: {
+          username: data.username,
+          programName: data.programName,
+          description: data.description || '',
+          estimatedDuration: data.estimatedDuration,
+          isAnonymous: false,
+        },
+      })
+      return { success: true, process: updated, message: '绑定信息成功' }
+    }
 
+  // Process doesn't exist - create new
   const process = await prisma.process.create({
     data: {
       ...data,
