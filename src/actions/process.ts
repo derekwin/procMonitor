@@ -10,6 +10,27 @@ export async function registerProcess(data: {
   description?: string
   estimatedDuration?: number
 }) {
+  // Validate input
+  if (!data.serverId || !data.pid || !data.username || !data.programName) {
+    return { success: false, error: '缺少必要参数' }
+  }
+  
+  // Validate PID is a positive number
+  if (typeof data.pid !== 'number' || data.pid <= 0 || !Number.isInteger(data.pid)) {
+    return { success: false, error: '无效的PID' }
+  }
+
+  // Validate estimated duration if provided
+  if (data.estimatedDuration !== undefined && (data.estimatedDuration <= 0 || !Number.isInteger(data.estimatedDuration))) {
+    return { success: false, error: '无效的预估时间' }
+  }
+
+  // Validate server exists
+  const server = await prisma.server.findUnique({ where: { id: data.serverId } })
+  if (!server) {
+    return { success: false, error: '服务器不存在' }
+  }
+
   const existing = await prisma.process.findUnique({
     where: {
       serverId_pid: {

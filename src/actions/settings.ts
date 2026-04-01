@@ -1,6 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
+import { checkAdminSession } from './auth'
 
 export async function getSettings() {
   const settings = await prisma.settings.findUnique({
@@ -24,6 +25,21 @@ export async function updateSettings(data: {
   scanInterval: number
   anonProcessThreshold?: number
 }) {
+  // Verify admin session
+  const isAdmin = await checkAdminSession()
+  if (!isAdmin) {
+    return { success: false, error: '需要管理员权限' }
+  }
+  
+  // Validate input
+  if (data.scanInterval !== undefined && (data.scanInterval < 10 || !Number.isInteger(data.scanInterval))) {
+    return { success: false, error: '扫描间隔至少10秒' }
+  }
+  
+  if (data.anonProcessThreshold !== undefined && (data.anonProcessThreshold < 60 || !Number.isInteger(data.anonProcessThreshold))) {
+    return { success: false, error: '匿名进程超时至少60分钟' }
+  }
+  
   const settings = await prisma.settings.upsert({
     where: { id: 'default' },
     update: data,

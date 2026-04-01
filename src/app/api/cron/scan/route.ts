@@ -5,7 +5,15 @@ export async function POST(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
   
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  // Check if it's a cron request (internal) or admin request
+  const isCronRequest = cronSecret && authHeader === `Bearer ${cronSecret}`
+  
+  // Verify admin session properly
+  const { getSession } = await import('@/lib/auth')
+  const session = await getSession()
+  const isAdminRequest = !!session
+  
+  if (!isCronRequest && !isAdminRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -83,11 +91,14 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
-  const cookieHeader = request.headers.get('cookie') || ''
   
   // Check if it's a cron request (internal) or admin request
   const isCronRequest = cronSecret && authHeader === `Bearer ${cronSecret}`
-  const isAdminRequest = cookieHeader.includes('admin-session')
+  
+  // Verify admin session properly
+  const { getSession } = await import('@/lib/auth')
+  const session = await getSession()
+  const isAdminRequest = !!session
   
   if (!isCronRequest && !isAdminRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -107,6 +118,14 @@ export async function DELETE(request: NextRequest) {
   const server = await prisma.server.findUnique({ where: { id: serverId } })
   if (!server) {
     return NextResponse.json({ error: 'Server not found' }, { status: 404 })
+  }
+
+  // Verify process exists in database and belongs to this server
+  const process = await prisma.process.findFirst({ 
+    where: { id: processId, serverId } 
+  })
+  if (!process) {
+    return NextResponse.json({ error: 'Process not found' }, { status: 404 })
   }
 
   try {
