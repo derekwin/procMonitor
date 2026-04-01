@@ -124,14 +124,9 @@ export default function RegisterPage() {
                   value={formData.username}
                   onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                   className="w-full px-3 py-2 border rounded-md"
-                  placeholder="运行该作业的用户"
+                  placeholder="您的用户名"
                   required
                 />
-                <div className="mt-2 p-3 bg-blue-50 rounded text-xs text-gray-600">
-                  <p className="font-medium mb-1">查询命令：</p>
-                  <code className="bg-gray-100 px-1 rounded">whoami</code>
-                  <p className="mt-1">查看当前用户名</p>
-                </div>
               </div>
             </div>
 

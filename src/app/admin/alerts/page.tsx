@@ -29,33 +29,41 @@ export default function AlertsPage() {
   const [scanning, setScanning] = useState(false)
 
   useEffect(() => {
-    loadSettingsAndProcesses()
+    loadProcessesWithoutScan()
+    loadSettingsAndStartInterval()
   }, [])
 
-  const loadSettingsAndProcesses = async () => {
+  const loadSettingsAndStartInterval = async () => {
     const settings = await getSettings()
-    const interval = (settings.scanInterval || 60) * 1000
-    
-    loadProcesses()
-    const timer = setInterval(loadProcesses, interval)
-    return () => clearInterval(timer)
+    if (settings.autoScan) {
+      const interval = (settings.scanInterval || 60) * 1000
+      const timer = setInterval(() => {
+        loadProcessesWithScan()
+      }, interval)
+      return () => clearInterval(timer)
+    }
   }
 
-  const handleManualScan = async () => {
-    setScanning(true)
-    await loadProcesses()
-    setScanning(false)
+  const loadProcessesWithoutScan = async () => {
+    const data = await getOverTimeProcesses()
+    setProcesses(data)
+    setLoading(false)
   }
 
-  const loadProcesses = async () => {
+  const loadProcessesWithScan = async () => {
     setLoading(true)
-    // Trigger scan first
     try {
       await fetch('/api/cron/scan', { method: 'POST' })
     } catch (e) {}
     const data = await getOverTimeProcesses()
     setProcesses(data)
     setLoading(false)
+  }
+
+  const handleManualScan = async () => {
+    setScanning(true)
+    await loadProcessesWithScan()
+    setScanning(false)
   }
 
   const handleKill = async (process: Process) => {
@@ -69,7 +77,7 @@ export default function AlertsPage() {
 
     if (result.success) {
       alert('进程已被终止')
-      loadProcesses()
+      loadProcessesWithoutScan()
     } else {
       alert(`终止失败: ${result.error}`)
     }
@@ -84,7 +92,7 @@ export default function AlertsPage() {
       await killServerProcess(process.id, process.server.id, process.pid)
     }
     alert('所有超时进程已终止')
-    loadProcesses()
+    loadProcessesWithoutScan()
   }
 
   const getRuntime = (startTime: Date) => {
