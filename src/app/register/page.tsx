@@ -19,6 +19,7 @@ export default function RegisterPage() {
     programName: '',
     description: '',
     estimatedDuration: '',
+    durationUnit: 'minutes',
   })
   const [submitting, setSubmitting] = useState(false)
   const [message, setMessage] = useState('')
@@ -32,13 +33,19 @@ export default function RegisterPage() {
     setSubmitting(true)
     setMessage('')
 
+    // Convert duration to minutes
+    let durationMinutes = parseInt(formData.estimatedDuration)
+    if (formData.durationUnit === 'hours') {
+      durationMinutes = durationMinutes * 60
+    }
+
     const result = await registerProcess({
       serverId: formData.serverId,
       pid: parseInt(formData.pid),
       username: formData.username,
       programName: formData.programName,
       description: formData.description || undefined,
-      estimatedDuration: formData.estimatedDuration ? parseInt(formData.estimatedDuration) : undefined,
+      estimatedDuration: durationMinutes,
     })
 
     setSubmitting(false)
@@ -51,6 +58,7 @@ export default function RegisterPage() {
         programName: '',
         description: '',
         estimatedDuration: '',
+        durationUnit: 'minutes',
       })
     } else {
       setMessage(result.error || '提交失败')
@@ -61,7 +69,7 @@ export default function RegisterPage() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto py-6 px-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">申请作业</h1>
+          <h1 className="text-2xl font-bold text-gray-900">申请GPU作业</h1>
           <div className="flex gap-4">
             <Link href="/" className="px-4 py-2 text-blue-500 hover:underline">返回首页</Link>
             <Link href="/dashboard" className="px-4 py-2 text-blue-500 hover:underline">作业看板</Link>
@@ -111,11 +119,6 @@ export default function RegisterPage() {
                   placeholder="进程ID"
                   required
                 />
-                <div className="mt-2 p-3 bg-blue-50 rounded text-xs text-gray-600">
-                  <p className="font-medium mb-1">查询命令：</p>
-                  <code className="bg-gray-100 px-1 rounded">ps -aux | grep 用户名</code>
-                  <p className="mt-1">或 <code className="bg-gray-100 px-1 rounded">top -u 用户名</code></p>
-                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">作业用户 <span className="text-red-500">*</span></label>
@@ -131,31 +134,37 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">作业程序 <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-medium mb-1">作业程序文件名 <span className="text-red-500">*</span></label>
               <input
                 type="text"
                 value={formData.programName}
                 onChange={(e) => setFormData({ ...formData, programName: e.target.value })}
                 className="w-full px-3 py-2 border rounded-md"
-                placeholder="如: python train.py"
+                placeholder="如: train.py, inference.sh"
                 required
               />
-              <div className="mt-2 p-3 bg-blue-50 rounded text-xs text-gray-600">
-                <p className="font-medium mb-1">查询命令：</p>
-                <code className="bg-gray-100 px-1 rounded">ps -ef | grep python</code>
-                <p className="mt-1">查看所有python进程</p>
-              </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">预估运行时间 (分钟)</label>
-              <input
-                type="number"
-                value={formData.estimatedDuration}
-                onChange={(e) => setFormData({ ...formData, estimatedDuration: e.target.value })}
-                className="w-full px-3 py-2 border rounded-md"
-                placeholder="预计运行多少分钟"
-              />
+              <label className="block text-sm font-medium mb-1">预估运行时间 <span className="text-red-500">*</span></label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  value={formData.estimatedDuration}
+                  onChange={(e) => setFormData({ ...formData, estimatedDuration: e.target.value })}
+                  className="flex-1 px-3 py-2 border rounded-md"
+                  placeholder="运行时长"
+                  required
+                />
+                <select
+                  value={formData.durationUnit}
+                  onChange={(e) => setFormData({ ...formData, durationUnit: e.target.value })}
+                  className="px-3 py-2 border rounded-md"
+                >
+                  <option value="minutes">分钟</option>
+                  <option value="hours">小时</option>
+                </select>
+              </div>
               <p className="text-xs text-gray-500 mt-1">超过此时间会提醒管理员确认是否结束作业</p>
             </div>
 
