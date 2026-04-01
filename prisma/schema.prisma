@@ -26,6 +26,7 @@ model Process {
   pid               Int
   username          String
   programName       String
+  workingDirectory  String?
   description       String?
   estimatedDuration Int?
   actualStartTime   DateTime @default(now())

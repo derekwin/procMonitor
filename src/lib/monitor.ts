@@ -4,7 +4,7 @@ import type { Prisma } from '@prisma/client'
 
 import { prisma } from '@/lib/prisma'
 import { migrateLegacyServerPasswords } from '@/lib/server-passwords'
-import { connectToServer, getProcessList, killProcess } from '@/lib/ssh'
+import { connectToServer, getProcessList, getWorkingDirectories, killProcess } from '@/lib/ssh'
 
 type ProcessWithServer = Prisma.ProcessGetPayload<{
   include: {
@@ -92,6 +92,7 @@ async function syncServerProcesses(
           pid: scannedProcess.pid,
           username: scannedProcess.user,
           programName: scannedProcess.command,
+          workingDirectory: scannedProcess.workingDirectory,
           isAnonymous: true,
         },
       })
@@ -106,6 +107,7 @@ async function syncServerProcesses(
             ? scannedProcess.user
             : existing.username,
         programName: existing.isAnonymous ? scannedProcess.command : existing.programName,
+        workingDirectory: scannedProcess.workingDirectory ?? existing.workingDirectory,
       },
     })
   }
@@ -140,7 +142,30 @@ export async function scanServers() {
 
     try {
       conn = await connectToServer(server)
+      const existingProcesses = await prisma.process.findMany({
+        where: { serverId: server.id },
+        select: { pid: true, workingDirectory: true },
+      })
+      const existingByPid = new Map(existingProcesses.map((process) => [process.pid, process]))
       const gpuProcesses = await getProcessList(conn)
+      const pidsNeedingWorkingDirectory = gpuProcesses
+        .filter((process) => {
+          const existing = existingByPid.get(process.pid)
+          return !existing || !existing.workingDirectory
+        })
+        .map((process) => process.pid)
+
+      const workingDirectories = pidsNeedingWorkingDirectory.length > 0
+        ? await getWorkingDirectories(conn, pidsNeedingWorkingDirectory, server.password)
+        : new Map<number, string | null>()
+
+      for (const process of gpuProcesses) {
+        process.workingDirectory =
+          workingDirectories.get(process.pid) ??
+          existingByPid.get(process.pid)?.workingDirectory ??
+          null
+      }
+
       await syncServerProcesses(server.id, gpuProcesses)
       const currentProcesses = await prisma.process.findMany({
         where: { serverId: server.id },
