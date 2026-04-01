@@ -174,13 +174,17 @@ export default function AlertsPage() {
                       {getRuntime(process.actualStartTime)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <button
-                        onClick={() => handleKill(process)}
-                        disabled={killing === process.id}
-                        className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50 text-sm"
-                      >
-                        {killing === process.id ? '终止中...' : 'Kill'}
-                      </button>
+                      {isAdmin ? (
+                        <button
+                          onClick={() => handleKill(process)}
+                          disabled={killing === process.id}
+                          className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50 text-sm"
+                        >
+                          {killing === process.id ? '终止中...' : 'Kill'}
+                        </button>
+                      ) : (
+                        <span className="text-gray-400 text-sm">无权限</span>
+                      )}
                     </td>
                   </tr>
                 ))}

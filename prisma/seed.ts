@@ -22,6 +22,7 @@ async function main() {
       id: 'default',
       autoScan: true,
       scanInterval: 60,
+      anonProcessThreshold: 360,
     },
   })
 

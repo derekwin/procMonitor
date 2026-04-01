@@ -87,7 +87,7 @@ export async function DELETE(request: NextRequest) {
   
   // Check if it's a cron request (internal) or admin request
   const isCronRequest = cronSecret && authHeader === `Bearer ${cronSecret}`
-  const isAdminRequest = cookieHeader.includes('admin_session')
+  const isAdminRequest = cookieHeader.includes('admin-session')
   
   if (!isCronRequest && !isAdminRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
