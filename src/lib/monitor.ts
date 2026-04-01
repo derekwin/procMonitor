@@ -158,7 +158,7 @@ export async function terminateTrackedProcess(processId: string) {
   const conn = await connectToServer(process.server)
 
   try {
-    await killProcess(conn, process.pid)
+    await killProcess(conn, process.pid, process.server.password)
   } finally {
     conn.end()
   }

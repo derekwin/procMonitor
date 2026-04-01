@@ -49,7 +49,11 @@ export async function connectToServer(server: ServerInfo): Promise<Client> {
   })
 }
 
-function executeRemoteCommand(conn: Client, command: string): Promise<string> {
+function executeRemoteCommand(
+  conn: Client,
+  command: string,
+  options?: { stdin?: string },
+): Promise<string> {
   return new Promise((resolve, reject) => {
     conn.exec(command, (err, stream) => {
       if (err) {
@@ -67,6 +71,11 @@ function executeRemoteCommand(conn: Client, command: string): Promise<string> {
       stream.stderr.on('data', (data: Buffer) => {
         stderr += data.toString()
       })
+
+      if (options?.stdin !== undefined) {
+        stream.write(options.stdin)
+        stream.end()
+      }
 
       stream.on('close', (code?: number) => {
         if (code && code !== 0) {
@@ -147,7 +156,11 @@ export async function getProcessList(conn: Client): Promise<ProcessInfo[]> {
   return processes.filter((process): process is ProcessInfo => Boolean(process))
 }
 
-export async function killProcess(conn: Client, pid: number): Promise<void> {
+export async function killProcess(
+  conn: Client,
+  pid: number,
+  sudoPassword?: string,
+): Promise<void> {
   try {
     await executeRemoteCommand(conn, `kill ${pid}`)
     return
@@ -174,13 +187,43 @@ export async function killProcess(conn: Client, pid: number): Promise<void> {
       const message = getErrorMessage(error).toLowerCase()
 
       if (message.includes('a password is required')) {
-        throw new Error(
-          '远程服务器未配置免密 sudo kill。请在该服务器上为当前 SSH 用户配置 NOPASSWD 的 /bin/kill 和 /usr/bin/kill。',
-        )
+        break
       }
 
       if (message.includes('command not found') || message.includes('no such file')) {
         continue
+      }
+    }
+  }
+
+  if (sudoPassword) {
+    const password = decryptSecret(sudoPassword)
+    const passwordBasedCommands = [
+      `sudo -S -p '' /bin/kill ${pid}`,
+      `sudo -S -p '' /usr/bin/kill ${pid}`,
+    ]
+
+    for (const command of passwordBasedCommands) {
+      try {
+        await executeRemoteCommand(conn, command, {
+          stdin: `${password}\n`,
+        })
+        return
+      } catch (error) {
+        lastError = error
+        const message = getErrorMessage(error).toLowerCase()
+
+        if (
+          message.includes('sorry, try again') ||
+          message.includes('incorrect password') ||
+          message.includes('authentication failure')
+        ) {
+          throw new Error('远程服务器 sudo 密码校验失败，请确认该 SSH 账号的系统密码正确且具备 sudo 权限。')
+        }
+
+        if (message.includes('command not found') || message.includes('no such file')) {
+          continue
+        }
       }
     }
   }

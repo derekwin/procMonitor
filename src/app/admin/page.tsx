@@ -267,8 +267,9 @@ export default function AdminPage() {
                 <input type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} className="w-full px-3 py-2 border rounded-md" />
               </div>
               <div className="bg-yellow-50 border border-yellow-200 rounded-md p-2 text-xs text-yellow-800">
-                <p className="font-medium">⚠️ 需配置 sudo 免密</p>
-                <p className="mt-1">在服务器执行: <code className="bg-white px-1 rounded">echo &quot;{formData.username || '用户名'} ALL=(ALL) NOPASSWD: /bin/kill, /usr/bin/kill&quot; | sudo tee /etc/sudoers.d/kill</code></p>
+                <p className="font-medium">提示</p>
+                <p className="mt-1">系统会优先尝试普通 <code className="bg-white px-1 rounded">kill</code>，失败后再尝试使用该 SSH 账号的 sudo 密码执行。</p>
+                <p className="mt-1">如果你的服务器支持免密 sudo，仍然推荐放行 <code className="bg-white px-1 rounded">/bin/kill</code> 和 <code className="bg-white px-1 rounded">/usr/bin/kill</code>，但不是必须条件。</p>
               </div>
               <button onClick={handleTestConnection} disabled={testing || !formData.host || !formData.username || !formData.password} className="w-full px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 disabled:opacity-50">
                 {testing ? '测试中...' : '测试连接'}
