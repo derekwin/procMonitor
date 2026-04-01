@@ -313,7 +313,9 @@ export default function DashboardPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">预估时间</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">已运行</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+                  {isAdmin && (
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -343,23 +345,25 @@ export default function DashboardPage() {
                           <span className="ml-1 text-xs bg-red-100 text-red-700 px-2 py-1 rounded">超时</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {isAdmin && isOverTime(process) && (
-                          <button
-                            onClick={() => handleKill(process)}
-                            disabled={killing === process.id}
-                            className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50 text-xs"
-                          >
-                            {killing === process.id ? '终止中' : 'Kill'}
-                          </button>
-                        )}
-                      </td>
+                      {isAdmin && (
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {isOverTime(process) && (
+                            <button
+                              onClick={() => handleKill(process)}
+                              disabled={killing === process.id}
+                              className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50 text-xs"
+                            >
+                              {killing === process.id ? '终止中' : 'Kill'}
+                            </button>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   )
                 })}
                 {filteredProcesses.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="px-6 py-4 text-center text-gray-500">
+                    <td colSpan={isAdmin ? 9 : 8} className="px-6 py-4 text-center text-gray-500">
                       暂无作业数据
                     </td>
                   </tr>
