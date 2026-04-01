@@ -121,10 +121,10 @@ export async function DELETE(request: NextRequest) {
   }
 
   // Verify process exists in database and belongs to this server
-  const process = await prisma.process.findFirst({ 
+  const dbProcess = await prisma.process.findFirst({ 
     where: { id: processId, serverId } 
   })
-  if (!process) {
+  if (!dbProcess) {
     return NextResponse.json({ error: 'Process not found' }, { status: 404 })
   }
 
