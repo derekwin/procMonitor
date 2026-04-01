@@ -219,10 +219,10 @@ export default function AlertsPage() {
                       </td>
                     </tr>
                     <tr className="bg-red-50">
-                      <td colSpan={8} className="px-6 pb-4 pl-12 pt-0">
-                        <div className="rounded-md bg-red-100/70 px-3 py-2 text-xs text-gray-700">
-                          <span className="font-medium">工作目录 (/proc/{process.pid}/cwd): </span>
-                          <span className="font-mono break-all">
+                      <td colSpan={8} className="px-6 pb-3 pl-12 pt-0">
+                        <div className="border-l-2 border-red-200 pl-3 text-xs text-gray-600">
+                          <span className="mr-2 text-red-300">/proc/{process.pid}/cwd</span>
+                          <span className="font-mono break-all text-gray-700">
                             {process.workingDirectory || '读取失败或当前用户无权限访问'}
                           </span>
                         </div>

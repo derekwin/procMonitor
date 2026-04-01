@@ -365,9 +365,9 @@ export default function DashboardPage() {
                         )}
                       </tr>
                       <tr className={overtime ? 'bg-yellow-50' : ''}>
-                        <td colSpan={columnCount} className="px-6 pb-4 pl-12 pt-0">
-                          <div className="rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600">
-                            <span className="font-medium">工作目录 (/proc/{process.pid}/cwd): </span>
+                        <td colSpan={columnCount} className="px-6 pb-3 pl-12 pt-0">
+                          <div className="border-l-2 border-gray-200 pl-3 text-xs text-gray-500">
+                            <span className="mr-2 text-gray-400">/proc/{process.pid}/cwd</span>
                             <span className="font-mono break-all text-gray-700">
                               {process.workingDirectory || '读取失败或当前用户无权限访问'}
                             </span>
