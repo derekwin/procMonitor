@@ -80,6 +80,10 @@ function executeRemoteCommand(conn: Client, command: string): Promise<string> {
   })
 }
 
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error)
+}
+
 function parseNvidiaSmiPmonPids(output: string) {
   const pids = new Set<number>()
   const lines = output.trim().split('\n')
@@ -144,5 +148,42 @@ export async function getProcessList(conn: Client): Promise<ProcessInfo[]> {
 }
 
 export async function killProcess(conn: Client, pid: number): Promise<void> {
-  await executeRemoteCommand(conn, `sudo -n kill ${pid}`)
+  try {
+    await executeRemoteCommand(conn, `kill ${pid}`)
+    return
+  } catch (error) {
+    const message = getErrorMessage(error).toLowerCase()
+    if (!message.includes('operation not permitted') && !message.includes('permission denied')) {
+      throw error
+    }
+  }
+
+  const privilegedCommands = [
+    `sudo -n /bin/kill ${pid}`,
+    `sudo -n /usr/bin/kill ${pid}`,
+  ]
+
+  let lastError: unknown = null
+
+  for (const command of privilegedCommands) {
+    try {
+      await executeRemoteCommand(conn, command)
+      return
+    } catch (error) {
+      lastError = error
+      const message = getErrorMessage(error).toLowerCase()
+
+      if (message.includes('a password is required')) {
+        throw new Error(
+          '远程服务器未配置免密 sudo kill。请在该服务器上为当前 SSH 用户配置 NOPASSWD 的 /bin/kill 和 /usr/bin/kill。',
+        )
+      }
+
+      if (message.includes('command not found') || message.includes('no such file')) {
+        continue
+      }
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('终止进程失败')
 }

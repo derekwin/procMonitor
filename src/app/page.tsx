@@ -56,8 +56,8 @@ export default function Home() {
         <div className="mt-8 bg-blue-50 p-6 rounded-lg">
           <h3 className="text-lg font-semibold mb-2">使用说明</h3>
           <ul className="list-disc list-inside text-gray-600 space-y-1">
-            <li>普通用户：通过&quot;申请作业&quot;提交您的GPU作业信息</li>
-            <li>管理员：通过&quot;管理员登录&quot;管理GPU服务器和监控作业</li>
+            <li>通过&quot;申请作业&quot;提交您的 GPU 作业信息，并填写用途和预估运行时间</li>
+            <li>提交后可在作业看板查看自己的作业是否已被识别和登记</li>
             <li>系统自动扫描GPU进程，识别深度学习训练、推理等作业</li>
             <li>匿名作业超过设定时间，或超过预估时间的作业将被标记</li>
           </ul>

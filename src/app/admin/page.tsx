@@ -268,7 +268,7 @@ export default function AdminPage() {
               </div>
               <div className="bg-yellow-50 border border-yellow-200 rounded-md p-2 text-xs text-yellow-800">
                 <p className="font-medium">⚠️ 需配置 sudo 免密</p>
-                <p className="mt-1">在服务器执行: <code className="bg-white px-1 rounded">echo &quot;{formData.username || '用户名'} ALL=(ALL) NOPASSWD: /bin/kill&quot; | sudo tee /etc/sudoers.d/kill</code></p>
+                <p className="mt-1">在服务器执行: <code className="bg-white px-1 rounded">echo &quot;{formData.username || '用户名'} ALL=(ALL) NOPASSWD: /bin/kill, /usr/bin/kill&quot; | sudo tee /etc/sudoers.d/kill</code></p>
               </div>
               <button onClick={handleTestConnection} disabled={testing || !formData.host || !formData.username || !formData.password} className="w-full px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 disabled:opacity-50">
                 {testing ? '测试中...' : '测试连接'}
