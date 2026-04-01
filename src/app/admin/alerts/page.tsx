@@ -154,11 +154,11 @@ export default function AlertsPage() {
       <main className="max-w-7xl mx-auto py-6 px-4">
         <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg mb-6">
           <p className="text-yellow-800">
-            以下进程已超时：
-            <strong>匿名进程 &gt; {anonThreshold}分钟</strong> 或 <strong>已注册进程 &gt; 预估时间</strong>
+            以下进程需要关注：
+            <strong>匿名进程会立即标记为超时</strong>，<strong>已注册进程 &gt; 预估时间</strong>
           </p>
           <p className="mt-1 text-xs text-yellow-700">
-            已注册作业超过预估时间后会先标记超时，管理员可提前处理；超过“预估时间 + {anonThreshold}分钟”后系统会自动终止。
+            匿名进程会立即进入列表，管理员可手动提前处理；超过 {anonThreshold} 分钟后系统会自动终止。已注册作业超过预估时间后会先标记超时，管理员可提前处理；超过“预估时间 + {anonThreshold}分钟”后系统会自动终止。
           </p>
           {processes.length > 0 && (
             <button

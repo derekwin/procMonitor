@@ -30,16 +30,15 @@ function isPastOvertimeThreshold(
   },
   gracePeriodMinutes: number,
 ) {
-  const runtimeMinutes = getRuntimeMinutes(process.actualStartTime)
-
   if (process.isAnonymous) {
-    return runtimeMinutes > gracePeriodMinutes
+    return true
   }
 
   if (!process.estimatedDuration) {
     return false
   }
 
+  const runtimeMinutes = getRuntimeMinutes(process.actualStartTime)
   return runtimeMinutes > process.estimatedDuration
 }
 

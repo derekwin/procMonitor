@@ -120,13 +120,14 @@ export default function DashboardPage() {
   }
 
   const isOverTime = (process: Process) => {
+    if (process.isAnonymous) {
+      return true
+    }
+
     const start = new Date(process.actualStartTime)
     const now = new Date()
     const runtimeMinutes = (now.getTime() - start.getTime()) / 1000 / 60
-    
-    if (process.isAnonymous) {
-      return runtimeMinutes > settings.anonProcessThreshold
-    }
+
     if (process.estimatedDuration) {
       return runtimeMinutes > process.estimatedDuration
     }
