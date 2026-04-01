@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { getProcesses } from '@/actions/dashboard'
 import { getSettings } from '@/actions/settings'
+import { checkAdminSession } from '@/actions/auth'
+import { killServerProcess } from '@/actions/monitor'
 import Link from 'next/link'
 
 interface Process {
@@ -15,6 +17,7 @@ interface Process {
   actualStartTime: Date
   isAnonymous: boolean
   server: {
+    id: string
     name: string
     host: string
   }
@@ -22,19 +25,24 @@ interface Process {
 
 export default function DashboardPage() {
   const [processes, setProcesses] = useState<Process[]>([])
-  const [filter, setFilter] = useState<'all' | 'registered' | 'anonymous'>('all')
+  const [filter, setFilter] = useState<'all' | 'registered' | 'anonymous' | 'overtime'>('all')
   const [loading, setLoading] = useState(true)
   const [scanning, setScanning] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [killing, setKilling] = useState<string | null>(null)
+  const [settings, setSettings] = useState({ anonProcessThreshold: 360 })
 
   useEffect(() => {
+    checkAdminSession().then(setIsAdmin)
     loadProcessesWithoutScan()
     loadSettingsAndStartInterval()
   }, [])
 
   const loadSettingsAndStartInterval = async () => {
-    const settings = await getSettings()
-    if (settings.autoScan) {
-      const interval = (settings.scanInterval || 60) * 1000
+    const data = await getSettings()
+    setSettings({ anonProcessThreshold: data.anonProcessThreshold || 360 })
+    if (data.autoScan) {
+      const interval = (data.scanInterval || 60) * 1000
       const timer = setInterval(() => {
         loadProcessesWithScan()
       }, interval)
@@ -63,6 +71,19 @@ export default function DashboardPage() {
     setScanning(false)
   }
 
+  const handleKill = async (process: Process) => {
+    if (!confirm(`确定要终止进程 ${process.pid} (${process.programName}) 吗？`)) return
+    setKilling(process.id)
+    const result = await killServerProcess(process.id, process.server as any, process.pid)
+    setKilling(null)
+    if (result.success) {
+      alert('进程已终止')
+      loadProcessesWithoutScan()
+    } else {
+      alert(`终止失败: ${result.error}`)
+    }
+  }
+
   const getRuntime = (startTime: Date) => {
     const start = new Date(startTime)
     const now = new Date()
@@ -85,7 +106,7 @@ export default function DashboardPage() {
     const hours = (now.getTime() - start.getTime()) / 1000 / 60 / 60
     
     if (process.isAnonymous) {
-      return hours > 6
+      return hours > (settings.anonProcessThreshold / 60)
     }
     if (process.estimatedDuration) {
       const estimatedHours = process.estimatedDuration / 60
@@ -97,6 +118,7 @@ export default function DashboardPage() {
   const filteredProcesses = processes.filter(p => {
     if (filter === 'registered') return !p.isAnonymous
     if (filter === 'anonymous') return p.isAnonymous
+    if (filter === 'overtime') return isOverTime(p)
     return true
   })
 
@@ -240,6 +262,12 @@ export default function DashboardPage() {
           >
             匿名 ({processes.filter(p => p.isAnonymous).length})
           </button>
+          <button
+            onClick={() => setFilter('overtime')}
+            className={`px-4 py-2 rounded-md ${filter === 'overtime' ? 'bg-red-500 text-white' : 'bg-white border'}`}
+          >
+            超时 ({overTimeCount})
+          </button>
         </div>
 
         {loading ? (
@@ -257,6 +285,7 @@ export default function DashboardPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">预估时间</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">已运行</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -284,6 +313,17 @@ export default function DashboardPage() {
                         )}
                         {overtime && (
                           <span className="ml-1 text-xs bg-red-100 text-red-700 px-2 py-1 rounded">超时</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {isAdmin && isOverTime(process) && (
+                          <button
+                            onClick={() => handleKill(process)}
+                            disabled={killing === process.id}
+                            className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50 text-xs"
+                          >
+                            {killing === process.id ? '终止中' : 'Kill'}
+                          </button>
                         )}
                       </td>
                     </tr>

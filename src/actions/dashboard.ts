@@ -6,7 +6,7 @@ export async function getProcesses() {
   const processes = await prisma.process.findMany({
     include: {
       server: {
-        select: { name: true, host: true },
+        select: { id: true, name: true, host: true },
       },
     },
     orderBy: { actualStartTime: 'desc' },

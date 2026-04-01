@@ -1,14 +1,25 @@
 'use client'
 
-import { useState } from 'react'
-import { loginAdmin } from '@/actions/auth'
+import { useState, useEffect } from 'react'
+import { loginAdmin, checkAdminSession } from '@/actions/auth'
 import { useRouter } from 'next/navigation'
 
 export default function AdminLogin() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true)
   const router = useRouter()
+
+  useEffect(() => {
+    checkAdminSession().then((isAdmin) => {
+      if (isAdmin) {
+        router.push('/admin')
+      } else {
+        setLoading(false)
+      }
+    })
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -18,8 +29,12 @@ export default function AdminLogin() {
     if (result.success) {
       router.push('/admin')
     } else {
-      setError(result.error || 'Login failed')
+      setError(result.error || '登录失败')
     }
+  }
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">加载中...</div>
   }
 
   return (
