@@ -6,6 +6,11 @@ import { requireAdminSession } from '@/lib/auth'
 export async function getSettings() {
   const settings = await prisma.settings.findUnique({
     where: { id: 'default' },
+    select: {
+      autoScan: true,
+      scanInterval: true,
+      anonProcessThreshold: true,
+    },
   })
   if (!settings) {
     return { autoScan: true, scanInterval: 60, anonProcessThreshold: 360 }
@@ -16,8 +21,23 @@ export async function getSettings() {
 export async function getAutoScan(): Promise<boolean> {
   const settings = await prisma.settings.findUnique({
     where: { id: 'default' },
+    select: { autoScan: true },
   })
   return settings?.autoScan ?? true
+}
+
+export async function getAdminCronSettings() {
+  await requireAdminSession()
+
+  const settings = await prisma.settings.findUnique({
+    where: { id: 'default' },
+    select: { cronSecret: true },
+  })
+
+  return {
+    cronSecret: settings?.cronSecret ?? '',
+    enabled: Boolean(settings?.cronSecret),
+  }
 }
 
 export async function updateSettings(data: {
@@ -51,4 +71,38 @@ export async function updateSettings(data: {
     },
   })
   return { success: true, settings }
+}
+
+export async function updateCronSecret(cronSecret: string) {
+  try {
+    await requireAdminSession()
+  } catch {
+    return { success: false, error: '需要管理员权限' }
+  }
+
+  const normalizedSecret = cronSecret.trim()
+
+  if (normalizedSecret && normalizedSecret.length < 16) {
+    return { success: false, error: 'Cron 密钥至少需要 16 位，留空则表示禁用' }
+  }
+
+  const settings = await prisma.settings.upsert({
+    where: { id: 'default' },
+    update: {
+      cronSecret: normalizedSecret || null,
+    },
+    create: {
+      id: 'default',
+      autoScan: true,
+      scanInterval: 60,
+      anonProcessThreshold: 360,
+      cronSecret: normalizedSecret || null,
+    },
+  })
+
+  return {
+    success: true,
+    cronSecret: settings.cronSecret ?? '',
+    enabled: Boolean(settings.cronSecret),
+  }
 }

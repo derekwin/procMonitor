@@ -48,4 +48,5 @@ model Settings {
   autoScan           Boolean @default(true)
   scanInterval       Int     @default(60) // in seconds
   anonProcessThreshold Int   @default(360) // anonymous process threshold in minutes (default 6 hours)
+  cronSecret         String?
 }

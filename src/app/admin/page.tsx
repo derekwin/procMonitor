@@ -4,7 +4,7 @@ import { startTransition, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { addServer, testServerConnection, getServers, deleteServer } from '@/actions/server'
 import { logoutAdmin } from '@/actions/auth'
-import { getSettings, updateSettings } from '@/actions/settings'
+import { getAdminCronSettings, getSettings, updateCronSecret, updateSettings } from '@/actions/settings'
 import { changeAdminPassword } from '@/actions/admin'
 import { useRouter } from 'next/navigation'
 
@@ -40,6 +40,8 @@ export default function AdminPage() {
   const [saving, setSaving] = useState(false)
   const [changingPassword, setChangingPassword] = useState(false)
   const [passwordMsg, setPasswordMsg] = useState('')
+  const [cronSecret, setCronSecret] = useState('')
+  const [savingCronSecret, setSavingCronSecret] = useState(false)
   const router = useRouter()
 
   async function loadServers() {
@@ -56,9 +58,10 @@ export default function AdminPage() {
     let cancelled = false
 
     async function bootstrap() {
-      const [serversData, settingsData] = await Promise.all([
+      const [serversData, settingsData, cronData] = await Promise.all([
         getServers(),
         getSettings(),
+        getAdminCronSettings(),
       ])
 
       if (cancelled) {
@@ -68,6 +71,7 @@ export default function AdminPage() {
       startTransition(() => {
         setServers(serversData)
         setSettings(settingsData)
+        setCronSecret(cronData.cronSecret)
       })
     }
 
@@ -150,6 +154,26 @@ export default function AdminPage() {
     } else {
       setPasswordMsg(result.error || '修改失败')
     }
+  }
+
+  const handleSaveCronSecret = async () => {
+    setSavingCronSecret(true)
+    const result = await updateCronSecret(cronSecret)
+    setSavingCronSecret(false)
+
+    if (!result.success) {
+      alert(result.error || 'Cron 密钥保存失败')
+      return
+    }
+
+    setCronSecret(result.cronSecret)
+    alert(result.enabled ? 'Cron 密钥已保存' : 'Cron 外部调用已禁用')
+  }
+
+  const handleGenerateCronSecret = () => {
+    const bytes = globalThis.crypto.getRandomValues(new Uint8Array(24))
+    const generated = Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('')
+    setCronSecret(generated)
   }
 
   return (
@@ -280,6 +304,34 @@ export default function AdminPage() {
               <div>
                 <label className="block text-sm font-medium mb-1">匿名进程超时（分钟）</label>
                 <input type="number" value={settings.anonProcessThreshold || 360} onChange={(e) => handleSettingsChange('anonProcessThreshold', parseInt(e.target.value))} className="w-full px-3 py-2 border rounded-md" min={60} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Cron 调用密钥</label>
+                <input
+                  type="text"
+                  value={cronSecret}
+                  onChange={(e) => setCronSecret(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-md"
+                  placeholder="留空表示禁用外部 cron 调用"
+                />
+                <p className="mt-1 text-xs text-gray-500">管理员手动扫描始终可用。只有你需要外部定时器调用扫描接口时，才需要配置这里。</p>
+                <div className="mt-2 flex gap-2">
+                  <button
+                    onClick={handleGenerateCronSecret}
+                    type="button"
+                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+                  >
+                    自动生成
+                  </button>
+                  <button
+                    onClick={handleSaveCronSecret}
+                    disabled={savingCronSecret}
+                    type="button"
+                    className="flex-1 px-4 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 disabled:opacity-50"
+                  >
+                    {savingCronSecret ? '保存中...' : '保存'}
+                  </button>
+                </div>
               </div>
             </div>
             <button onClick={() => setShowSettings(false)} className="w-full mt-4 px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600">

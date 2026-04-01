@@ -3,10 +3,8 @@ services:
     build: .
     ports:
       - "3000:3000"
-    environment:
-      - DATABASE_URL=file:/app/data/proc.db
-      - ADMIN_SECRET=change-this-in-production
-      - CRON_SECRET=your-cron-secret-here
+    env_file:
+      - ./data/runtime-secrets.env
     volumes:
       - ./data:/app/data
     restart: unless-stopped
