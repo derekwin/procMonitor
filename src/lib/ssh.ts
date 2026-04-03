@@ -94,6 +94,16 @@ function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error)
 }
 
+function requiresSudoPassword(message: string) {
+  return [
+    'a password is required',
+    'no tty present',
+    'no askpass program specified',
+    'a terminal is required',
+    'must be run from a terminal',
+  ].some((pattern) => message.includes(pattern))
+}
+
 async function executeWithSudoFallback(
   conn: Client,
   options: {
@@ -125,7 +135,7 @@ async function executeWithSudoFallback(
       lastError = error
       const message = getErrorMessage(error).toLowerCase()
 
-      if (message.includes('a password is required')) {
+      if (requiresSudoPassword(message)) {
         shouldTryPassword = true
         break
       }
@@ -229,13 +239,26 @@ async function getProcessWorkingDirectory(
 ): Promise<string | null> {
   try {
     const output = await executeWithSudoFallback(conn, {
-      unprivilegedCommands: [`readlink /proc/${pid}/cwd`],
-      sudoCommands: [`readlink /proc/${pid}/cwd`],
+      unprivilegedCommands: [
+        `readlink /proc/${pid}/cwd`,
+        `ls -ld /proc/${pid}/cwd`,
+      ],
+      sudoCommands: [
+        `readlink /proc/${pid}/cwd`,
+        `/usr/bin/readlink /proc/${pid}/cwd`,
+        `ls -ld /proc/${pid}/cwd`,
+        `/bin/ls -ld /proc/${pid}/cwd`,
+        `/usr/bin/ls -ld /proc/${pid}/cwd`,
+      ],
       sudoPassword,
       passwordFailureMessage: '远程服务器 sudo 密码校验失败，无法读取进程工作目录。',
     })
 
-    const workingDirectory = output.trim()
+    const normalizedOutput = output.trim()
+    const workingDirectory = normalizedOutput.includes(' -> ')
+      ? normalizedOutput.split(' -> ').pop()?.trim() || ''
+      : normalizedOutput
+
     return workingDirectory || null
   } catch {
     return null
