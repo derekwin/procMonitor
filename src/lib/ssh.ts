@@ -239,10 +239,7 @@ async function getProcessWorkingDirectory(
 ): Promise<string | null> {
   try {
     const output = await executeWithSudoFallback(conn, {
-      unprivilegedCommands: [
-        `readlink /proc/${pid}/cwd`,
-        `ls -ld /proc/${pid}/cwd`,
-      ],
+      unprivilegedCommands: [],
       sudoCommands: [
         `readlink /proc/${pid}/cwd`,
         `/usr/bin/readlink /proc/${pid}/cwd`,
