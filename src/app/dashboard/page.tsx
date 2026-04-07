@@ -77,13 +77,7 @@ export default function DashboardPage() {
 
       if (settingsData.autoScan) {
         timer = setInterval(() => {
-          void runMonitorScan()
-            .then(result => {
-              if (!result.success) {
-                console.error('自动扫描部分失败，请检查服务器连接或权限配置。')
-              }
-            })
-            .then(() => loadProcessesWithoutScan())
+          void loadProcessesWithoutScan()
         }, (settingsData.scanInterval || 60) * 1000)
       }
     }

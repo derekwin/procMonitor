@@ -113,7 +113,7 @@ async function syncServerProcesses(
   }
 }
 
-export async function scanServers() {
+async function scanServersInternal() {
   await migrateLegacyServerPasswords()
 
   const [servers, settings] = await Promise.all([
@@ -224,6 +224,20 @@ export async function scanServers() {
     success: results.every((result) => result.success),
     results,
   }
+}
+
+let scanInFlight: Promise<Awaited<ReturnType<typeof scanServersInternal>>> | null = null
+
+export async function scanServers() {
+  if (scanInFlight) {
+    return scanInFlight
+  }
+
+  scanInFlight = scanServersInternal().finally(() => {
+    scanInFlight = null
+  })
+
+  return scanInFlight
 }
 
 export async function listProcesses(): Promise<ProcessWithServer[]> {
